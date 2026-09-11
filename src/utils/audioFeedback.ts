@@ -43,8 +43,20 @@ class SoundManager {
     }
   }
 
+  // Haptic feedback vibration for mobile gym workouts
+  triggerHaptic(pattern: number[] = [350, 150, 350]) {
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(pattern);
+      }
+    } catch {
+      // Ignore vibration unsupported error
+    }
+  }
+
   // Triple beep when rest timer finishes (Gym alarm)
   playTimerDone() {
+    this.triggerHaptic([400, 180, 400]);
     try {
       const ctx = this.getContext();
       if (!ctx) return;

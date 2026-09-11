@@ -20,6 +20,7 @@ import {
   INITIAL_CHAT_MESSAGES 
 } from '../data/mockData';
 import { soundManager } from '../utils/audioFeedback';
+import { wakeLockManager } from '../utils/wakeLock';
 import { TRANSLATIONS, type Language, type Translations } from '../i18n/translations';
 import { 
   initMultiDeviceSync, 
@@ -86,6 +87,7 @@ interface FitnessContextType {
     remaining: number;
     total: number;
     exerciseName: string;
+    targetEndTime?: number;
   };
   dismissRestTimer: () => void;
   addRestTimerSeconds: (seconds: number) => void;
@@ -214,17 +216,19 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [activeAthleteId, activeAthlete?.assignedRoutine]);
 
-  // Rest Timer state
+  // Rest Timer state with wall-clock targetEndTime for absolute accuracy on screen sleep
   const [restTimer, setRestTimer] = useState<{
     active: boolean;
     remaining: number;
     total: number;
     exerciseName: string;
+    targetEndTime?: number;
   }>({
     active: false,
     remaining: 0,
     total: 90,
-    exerciseName: ''
+    exerciseName: '',
+    targetEndTime: undefined
   });
 
   // Feed & Chat
@@ -245,25 +249,54 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     }, 3500);
   };
 
-  // Rest timer countdown effect
+  // Rest timer countdown effect: timestamp-based + Screen Wake Lock + resume on screen wake
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-    if (restTimer.active && restTimer.remaining > 0) {
-      interval = setInterval(() => {
-        setRestTimer(prev => {
-          if (prev.remaining <= 1) {
-            soundManager.playTimerDone();
-            showToast(`⏰ Recupero completato per ${prev.exerciseName}! Pronto per la prossima serie.`);
-            return { ...prev, active: false, remaining: 0 };
-          }
-          return { ...prev, remaining: prev.remaining - 1 };
-        });
-      }, 1000);
+    if (!restTimer.active || !restTimer.targetEndTime) {
+      wakeLockManager.releaseWakeLock();
+      return;
     }
-    return () => {
-      if (interval) clearInterval(interval);
+
+    // Keep screen awake while rest timer is ticking
+    wakeLockManager.requestWakeLock();
+
+    const updateTimer = () => {
+      if (!restTimer.targetEndTime) return;
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((restTimer.targetEndTime - now) / 1000));
+
+      if (remaining <= 0) {
+        soundManager.playTimerDone();
+        showToast(`⏰ Recupero completato per ${restTimer.exerciseName}! Pronto per la prossima serie.`);
+        setRestTimer(prev => ({ ...prev, active: false, remaining: 0, targetEndTime: undefined }));
+        wakeLockManager.releaseWakeLock();
+      } else {
+        setRestTimer(prev => (prev.remaining !== remaining ? { ...prev, remaining } : prev));
+      }
     };
-  }, [restTimer.active, restTimer.remaining]);
+
+    // Immediate check
+    updateTimer();
+
+    // High frequency interval (300ms) for smooth second transitions
+    const interval = setInterval(updateTimer, 300);
+
+    // If screen sleeps and wakes up, immediately recalculate remaining time from timestamp!
+    const handleVisibilityOrFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        updateTimer();
+        wakeLockManager.requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, [restTimer.active, restTimer.targetEndTime, restTimer.exerciseName]);
 
   // Multi-Device Cross-Sync over Local Wi-Fi (Server-Sent Events)
   useEffect(() => {
@@ -623,12 +656,15 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         // Start automatic Rest Timer with time chosen by personal coach
         const restSec = targetExercise.restSeconds || activeAthlete?.defaultRestSeconds || 90;
+        const targetEndTime = Date.now() + restSec * 1000;
         setRestTimer({
           active: true,
           remaining: restSec,
           total: restSec,
-          exerciseName: targetExercise.name
+          exerciseName: targetExercise.name,
+          targetEndTime
         });
+        wakeLockManager.requestWakeLock();
 
         // Publish to other connected devices (e.g. tablet coach)
         publishSyncEvent('TOGGLE_SET', {
@@ -713,24 +749,33 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Dismiss / modify rest timer
   const dismissRestTimer = () => {
-    setRestTimer(prev => ({ ...prev, active: false }));
+    setRestTimer(prev => ({ ...prev, active: false, remaining: 0, targetEndTime: undefined }));
+    wakeLockManager.releaseWakeLock();
   };
 
   const addRestTimerSeconds = (seconds: number) => {
-    setRestTimer(prev => ({
-      ...prev,
-      remaining: Math.max(0, prev.remaining + seconds),
-      total: Math.max(prev.remaining + seconds, prev.total + (seconds > 0 ? seconds : 0))
-    }));
+    setRestTimer(prev => {
+      const newRemaining = Math.max(0, prev.remaining + seconds);
+      const newTargetEndTime = Date.now() + newRemaining * 1000;
+      return {
+        ...prev,
+        remaining: newRemaining,
+        total: Math.max(newRemaining, prev.total + (seconds > 0 ? seconds : 0)),
+        targetEndTime: newTargetEndTime
+      };
+    });
   };
 
   const startRestTimer = (seconds: number, exerciseName: string) => {
+    const targetEndTime = Date.now() + seconds * 1000;
     setRestTimer({
       active: true,
       remaining: seconds,
       total: seconds,
-      exerciseName
+      exerciseName,
+      targetEndTime
     });
+    wakeLockManager.requestWakeLock();
   };
 
   // Feed actions
