@@ -33,6 +33,7 @@ import type { WorkoutExercise } from '../../types';
 import { ExerciseVideoModal } from '../../components/ExerciseVideoModal';
 import { PlateCalculatorModal } from '../../components/PlateCalculatorModal';
 import { SetFeedbackModal, type SetFeedbackTag } from '../../components/SetFeedbackModal';
+import { WorkoutDiaryView } from '../../components/WorkoutDiaryView';
 import { getMuscleGroupTheme } from '../../utils/muscleThemes';
 import { 
   translateExerciseName, 
@@ -71,7 +72,7 @@ export const AthleteApp: React.FC = () => {
   const athlete = activeAthlete || athletes.find(a => a.id === activeAthleteId) || athletes[0];
 
   const [inWorkoutSession, setInWorkoutSession] = useState(false);
-  const [activeTab, setActiveTab] = useState<'workout' | 'checkin' | 'chat'>('workout');
+  const [activeTab, setActiveTab] = useState<'workout' | 'diario' | 'checkin' | 'chat'>('workout');
   const [chatInput, setChatInput] = useState('');
   const [videoModalExercise, setVideoModalExercise] = useState<WorkoutExercise | null>(null);
   const [isTimerMinimized, setIsTimerMinimized] = useState(false);
@@ -233,6 +234,18 @@ export const AthleteApp: React.FC = () => {
           >
             <Dumbbell className="w-3.5 h-3.5 stroke-[2.5]" />
             <span className="font-mono uppercase font-bold text-[11px]">{t.athlete.routineTab}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('diario')}
+            className={`flex-1 py-1.5 sm:py-2 rounded-md sm:rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs ${
+              activeTab === 'diario'
+                ? 'bg-white text-blue-600 font-black shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+            title="Diario Presenze & Sovraccarico Progressivo"
+          >
+            <Calendar className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span className="font-mono uppercase font-bold text-[11px]">{language === 'it' ? 'Diario' : language === 'es' ? 'Diario' : 'Diary'}</span>
           </button>
           <button
             onClick={() => setActiveTab('checkin')}
@@ -760,6 +773,11 @@ export const AthleteApp: React.FC = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* Tab: DIARIO & STORICO ALLENAMENTI */}
+      {activeTab === 'diario' && athlete && (
+        <WorkoutDiaryView athlete={athlete} />
       )}
 
       {/* Tab: CHECK-IN CORPOREO & TELEMETRIA BIA (Inserimento Atleta & Avanzamenti) */}

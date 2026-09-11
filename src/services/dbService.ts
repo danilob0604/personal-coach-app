@@ -3,12 +3,14 @@ import type {
   Athlete, 
   WorkoutRoutine, 
   LiveActivityFeedItem, 
-  ChatMessage 
+  ChatMessage,
+  WorkoutLogSession
 } from '../types';
 import { 
   INITIAL_ATHLETES, 
   MASTER_ROUTINE_TEMPLATES,
-  INITIAL_LIVE_FEED
+  INITIAL_LIVE_FEED,
+  INITIAL_WORKOUT_LOGS
 } from '../data/mockData';
 
 // Local storage keys for resilient offline-first caching
@@ -193,20 +195,97 @@ export async function upsertMasterTemplate(routine: WorkoutRoutine): Promise<voi
 // -----------------------------------------------------------------------------
 // 3. WORKOUT LOGS & REALTIME SESSIONS
 // -----------------------------------------------------------------------------
-export async function saveWorkoutLog(log: WorkoutLogItem): Promise<void> {
+export async function fetchWorkoutLogs(athleteId?: string): Promise<WorkoutLogSession[]> {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      let query = supabase.from('workout_logs').select('*').order('completed_at', { ascending: false });
+      if (athleteId) {
+        query = query.eq('athlete_id', athleteId);
+      }
+      const { data, error } = await query;
+      if (!error && data && data.length > 0) {
+        const mapped: WorkoutLogSession[] = data.map(d => ({
+          id: d.id,
+          athleteId: d.athlete_id,
+          athleteName: d.athlete_name,
+          routineId: d.routine_id,
+          routineTitle: d.routine_title,
+          splitIndex: d.split_index,
+          splitName: d.split_name,
+          totalVolumeKg: Number(d.total_volume_kg) || 0,
+          durationMinutes: d.duration_minutes || 50,
+          exercisesData: d.exercises_data || [],
+          completedAt: d.completed_at || d.created_at
+        }));
+        
+        localStorage.setItem(STORAGE_KEYS.WORKOUT_LOGS, JSON.stringify(mapped));
+        return mapped;
+      }
+    } catch (e) {
+      console.warn('Supabase fetchWorkoutLogs error, fallback to cache:', e);
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    const cached = localStorage.getItem(STORAGE_KEYS.WORKOUT_LOGS);
+    if (cached) {
+      try {
+        const parsed: WorkoutLogSession[] = JSON.parse(cached);
+        if (athleteId) {
+          const filtered = parsed.filter(p => p.athleteId === athleteId);
+          if (filtered.length > 0) return filtered;
+        } else if (parsed.length > 0) {
+          return parsed;
+        }
+      } catch {}
+    }
+  }
+
+  if (athleteId) {
+    return INITIAL_WORKOUT_LOGS.filter(l => l.athleteId === athleteId);
+  }
+  return INITIAL_WORKOUT_LOGS;
+}
+
+export async function saveWorkoutLog(log: WorkoutLogSession | WorkoutLogItem): Promise<void> {
+  const normalizedSession: WorkoutLogSession = 'athleteId' in log ? log : {
+    id: log.id,
+    athleteId: log.athlete_id,
+    athleteName: log.athlete_name,
+    routineId: log.routine_id,
+    routineTitle: log.routine_title,
+    splitIndex: log.split_index,
+    splitName: log.split_name,
+    totalVolumeKg: log.total_volume_kg,
+    durationMinutes: 50,
+    exercisesData: log.exercises_data,
+    completedAt: log.completed_at
+  };
+
   // Update local cache
   if (typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem(STORAGE_KEYS.WORKOUT_LOGS);
-      const list: WorkoutLogItem[] = cached ? JSON.parse(cached) : [];
-      list.unshift(log);
+      const list: WorkoutLogSession[] = cached ? JSON.parse(cached) : [...INITIAL_WORKOUT_LOGS];
+      list.unshift(normalizedSession);
       localStorage.setItem(STORAGE_KEYS.WORKOUT_LOGS, JSON.stringify(list));
     } catch {}
   }
 
   if (isSupabaseConfigured && supabase) {
     try {
-      await supabase.from('workout_logs').insert([log]);
+      await supabase.from('workout_logs').insert([{
+        id: normalizedSession.id,
+        athlete_id: normalizedSession.athleteId,
+        athlete_name: normalizedSession.athleteName,
+        routine_id: normalizedSession.routineId,
+        routine_title: normalizedSession.routineTitle,
+        split_index: normalizedSession.splitIndex,
+        split_name: normalizedSession.splitName,
+        total_volume_kg: normalizedSession.totalVolumeKg,
+        exercises_data: normalizedSession.exercisesData,
+        completed_at: normalizedSession.completedAt
+      }]);
     } catch (e) {
       console.warn('Supabase saveWorkoutLog error:', e);
     }

@@ -354,10 +354,10 @@ export const TrainerWorkoutBuilderTab: React.FC = () => {
         ...target.sets,
         {
           setNumber: newSetNumber,
-          suggestedWeightKg: lastSet ? lastSet.suggestedWeightKg : 50,
-          suggestedReps: lastSet ? lastSet.suggestedReps : 8,
-          actualWeightKg: lastSet ? lastSet.suggestedWeightKg : 50,
-          actualReps: lastSet ? lastSet.suggestedReps : 8,
+          suggestedWeightKg: lastSet?.suggestedWeightKg ?? 50,
+          suggestedReps: lastSet?.suggestedReps ?? 8,
+          actualWeightKg: lastSet?.suggestedWeightKg ?? 50,
+          actualReps: lastSet?.suggestedReps ?? 8,
           completed: false
         }
       ];

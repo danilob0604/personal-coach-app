@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import type { Athlete, BiaCheckRecord } from '../types';
 import { getMuscleGroupTheme } from '../utils/muscleThemes';
+import { WorkoutDiaryView } from './WorkoutDiaryView';
 
 interface AthleteDossierModalProps {
   athlete: Athlete | null;
@@ -46,7 +47,7 @@ const AthleteDossierModalContent: React.FC<{ athlete: Athlete; onClose: () => vo
     masterTemplates 
   } = useFitness();
 
-  const [activeTab, setActiveTab] = useState<'anagrafica' | 'background' | 'anamnesi' | 'bia' | 'stato' | 'recupero'>('anagrafica');
+  const [activeTab, setActiveTab] = useState<'anagrafica' | 'background' | 'anamnesi' | 'bia' | 'stato' | 'recupero' | 'diario'>('anagrafica');
   const [showAddBiaModal, setShowAddBiaModal] = useState(false);
 
   // Form state initialized with athlete data
@@ -329,6 +330,20 @@ const AthleteDossierModalContent: React.FC<{ athlete: Athlete; onClose: () => vo
           >
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>Stato & Slot PT</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('diario')}
+            className={`flex items-center gap-1.5 px-3 py-2 border-b-2 font-bold uppercase transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'diario'
+                ? 'border-emerald-600 text-emerald-600 font-black'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Diario & Presenze</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           </button>
         </div>
 
@@ -1048,6 +1063,13 @@ const AthleteDossierModalContent: React.FC<{ athlete: Athlete; onClose: () => vo
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* TAB 7: DIARIO STORICO & PREMESSA SOVRACCARICO PROGRESSIVO */}
+          {activeTab === 'diario' && (
+            <div className="pt-1">
+              <WorkoutDiaryView athlete={athlete} isCoachView={true} />
             </div>
           )}
 

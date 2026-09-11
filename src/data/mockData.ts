@@ -1,4 +1,4 @@
-import type { Athlete, ExerciseDefinition, LiveActivityFeedItem, SubscriptionPlan, WorkoutRoutine, ChatMessage } from '../types';
+import type { Athlete, ExerciseDefinition, LiveActivityFeedItem, SubscriptionPlan, WorkoutRoutine, ChatMessage, WorkoutLogSession } from '../types';
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
@@ -1205,5 +1205,331 @@ export const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     senderName: 'Coach Alessandro',
     text: 'Ho visto il video! Movimento compatto, estensione completa e bacino in asse perfetto. Complimenti per il nuovo record! 🔥',
     timestamp: 'Oggi, 10:25'
+  }
+];
+
+export const INITIAL_WORKOUT_LOGS: WorkoutLogSession[] = [
+  {
+    id: 'log-hist-1',
+    athleteId: 'ath-1',
+    athleteName: 'Marco Rossi',
+    routineId: 'routine-1',
+    routineTitle: 'Protocollo Uomo Ipertrofia Spinta/Trazione/Gambe',
+    splitIndex: 0,
+    splitName: 'Split A (Lunedì) - Petto & Spalle',
+    totalVolumeKg: 4280,
+    durationMinutes: 52,
+    completedAt: '2026-08-17T18:30:00.000Z',
+    exercisesData: [
+      {
+        id: 'ex-1',
+        name: 'Panca Piana con Bilanciere',
+        muscle: 'Petto',
+        restSeconds: 90,
+        targetRPE: 8,
+        sets: [
+          { setNumber: 1, targetReps: 8, actualWeightKg: 70, actualReps: 8, completed: true, feedbackTag: 'easy' },
+          { setNumber: 2, targetReps: 6, actualWeightKg: 70, actualReps: 6, completed: true, feedbackTag: 'easy' },
+          { setNumber: 3, targetReps: 6, actualWeightKg: 70, actualReps: 6, completed: true, feedbackTag: 'limit' }
+        ]
+      },
+      {
+        id: 'ex-2',
+        name: 'Spinte Manubri su Panca Inclinata',
+        muscle: 'Petto',
+        restSeconds: 75,
+        targetRPE: 8.5,
+        sets: [
+          { setNumber: 1, targetReps: 10, actualWeightKg: 22, actualReps: 10, completed: true },
+          { setNumber: 2, targetReps: 8, actualWeightKg: 24, actualReps: 8, completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'log-hist-2',
+    athleteId: 'ath-1',
+    athleteName: 'Marco Rossi',
+    routineId: 'routine-1',
+    routineTitle: 'Protocollo Uomo Ipertrofia Spinta/Trazione/Gambe',
+    splitIndex: 1,
+    splitName: 'Split B (Mercoledì) - Dorso & Braccia',
+    totalVolumeKg: 4650,
+    durationMinutes: 55,
+    completedAt: '2026-08-19T19:00:00.000Z',
+    exercisesData: [
+      {
+        id: 'ex-6',
+        name: 'Lat Machine Avanti Presa Larga',
+        muscle: 'Dorso',
+        restSeconds: 75,
+        targetRPE: 8,
+        sets: [
+          { setNumber: 1, targetReps: 10, actualWeightKg: 60, actualReps: 10, completed: true },
+          { setNumber: 2, targetReps: 8, actualWeightKg: 65, actualReps: 8, completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'log-hist-3',
+    athleteId: 'ath-1',
+    athleteName: 'Marco Rossi',
+    routineId: 'routine-1',
+    routineTitle: 'Protocollo Uomo Ipertrofia Spinta/Trazione/Gambe',
+    splitIndex: 2,
+    splitName: 'Split C (Venerdì) - Gambe & Addome',
+    totalVolumeKg: 5800,
+    durationMinutes: 58,
+    completedAt: '2026-08-21T18:15:00.000Z',
+    exercisesData: [
+      {
+        id: 'ex-3',
+        name: 'Squat con Bilanciere',
+        muscle: 'Gambe',
+        restSeconds: 120,
+        targetRPE: 8,
+        sets: [
+          { setNumber: 1, targetReps: 8, actualWeightKg: 95, actualReps: 8, completed: true },
+          { setNumber: 2, targetReps: 6, actualWeightKg: 100, actualReps: 6, completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'log-hist-4',
+    athleteId: 'ath-1',
+    athleteName: 'Marco Rossi',
+    routineId: 'routine-1',
+    routineTitle: 'Protocollo Uomo Ipertrofia Spinta/Trazione/Gambe',
+    splitIndex: 0,
+    splitName: 'Split A (Lunedì) - Petto & Spalle',
+    totalVolumeKg: 4420,
+    durationMinutes: 50,
+    completedAt: '2026-08-24T18:40:00.000Z',
+    exercisesData: [
+      {
+        id: 'ex-1',
+        name: 'Panca Piana con Bilanciere',
+        muscle: 'Petto',
+        restSeconds: 90,
+        targetRPE: 8,
+        sets: [
+          { setNumber: 1, targetReps: 8, actualWeightKg: 72.5, actualReps: 8, completed: true, feedbackTag: 'easy' },
+          { setNumber: 2, targetReps: 6, actualWeightKg: 72.5, actualReps: 6, completed: true, feedbackTag: 'easy' },
+          { setNumber: 3, targetReps: 6, actualWeightKg: 72.5, actualReps: 6, completed: true, feedbackTag: 'limit' }
+        ]
+      },
+      {
+        id: 'ex-2',
+        name: 'Spinte Manubri su Panca Inclinata',
+        muscle: 'Petto',
+        restSeconds: 75,
+        targetRPE: 8.5,
+        sets: [
+          { setNumber: 1, targetReps: 10, actualWeightKg: 24, actualReps: 10, completed: true },
+          { setNumber: 2, targetReps: 8, actualWeightKg: 24, actualReps: 8, completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'log-hist-5',
+    athleteId: 'ath-1',
+    athleteName: 'Marco Rossi',
+    routineId: 'routine-1',
+    routineTitle: 'Protocollo Uomo Ipertrofia Spinta/Trazione/Gambe',
+    splitIndex: 1,
+    splitName: 'Split B (Mercoledì) - Dorso & Braccia',
+    totalVolumeKg: 4800,
+    durationMinutes: 53,
+    completedAt: '2026-08-26T19:15:00.000Z',
+    exercisesData: [
+      {
+        id: 'ex-6',
+        name: 'Lat Machine Avanti Presa Larga',
+        muscle: 'Dorso',
+        restSeconds: 75,
+        targetRPE: 8,
+        sets: [
+          { setNumber: 1, targetReps: 10, actualWeightKg: 65, actualReps: 10, completed: true },
+          { setNumber: 2, targetReps: 8, actualWeightKg: 70, actualReps: 8, completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'log-hist-6',
+    athleteId: 'ath-1',
+    athleteName: 'Marco Rossi',
+    routineId: 'routine-1',
+    routineTitle: 'Protocollo Uomo Ipertrofia Spinta/Trazione/Gambe',
+    splitIndex: 2,
+    splitName: 'Split C (Venerdì) - Gambe & Addome',
+    totalVolumeKg: 6100,
+    durationMinutes: 60,
+    completedAt: '2026-08-28T18:00:00.000Z',
+    exercisesData: [
+      {
+        id: 'ex-3',
+        name: 'Squat con Bilanciere',
+        muscle: 'Gambe',
+        restSeconds: 120,
+        targetRPE: 8,
+        sets: [
+          { setNumber: 1, targetReps: 8, actualWeightKg: 100, actualReps: 8, completed: true },
+          { setNumber: 2, targetReps: 6, actualWeightKg: 102.5, actualReps: 6, completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'log-hist-7',
+    athleteId: 'ath-1',
+    athleteName: 'Marco Rossi',
+    routineId: 'routine-1',
+    routineTitle: 'Protocollo Uomo Ipertrofia Spinta/Trazione/Gambe',
+    splitIndex: 0,
+    splitName: 'Split A (Lunedì) - Petto & Spalle',
+    totalVolumeKg: 4620,
+    durationMinutes: 52,
+    completedAt: '2026-08-31T18:30:00.000Z',
+    exercisesData: [
+      {
+        id: 'ex-1',
+        name: 'Panca Piana con Bilanciere',
+        muscle: 'Petto',
+        restSeconds: 90,
+        targetRPE: 8,
+        sets: [
+          { setNumber: 1, targetReps: 8, actualWeightKg: 75, actualReps: 8, completed: true, feedbackTag: 'easy' },
+          { setNumber: 2, targetReps: 6, actualWeightKg: 75, actualReps: 6, completed: true, feedbackTag: 'easy' },
+          { setNumber: 3, targetReps: 6, actualWeightKg: 77.5, actualReps: 6, completed: true, feedbackTag: 'limit' }
+        ]
+      },
+      {
+        id: 'ex-2',
+        name: 'Spinte Manubri su Panca Inclinata',
+        muscle: 'Petto',
+        restSeconds: 75,
+        targetRPE: 8.5,
+        sets: [
+          { setNumber: 1, targetReps: 10, actualWeightKg: 26, actualReps: 10, completed: true },
+          { setNumber: 2, targetReps: 8, actualWeightKg: 26, actualReps: 8, completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'log-hist-8',
+    athleteId: 'ath-1',
+    athleteName: 'Marco Rossi',
+    routineId: 'routine-1',
+    routineTitle: 'Protocollo Uomo Ipertrofia Spinta/Trazione/Gambe',
+    splitIndex: 1,
+    splitName: 'Split B (Mercoledì) - Dorso & Braccia',
+    totalVolumeKg: 4950,
+    durationMinutes: 54,
+    completedAt: '2026-09-02T19:00:00.000Z',
+    exercisesData: [
+      {
+        id: 'ex-6',
+        name: 'Lat Machine Avanti Presa Larga',
+        muscle: 'Dorso',
+        restSeconds: 75,
+        targetRPE: 8,
+        sets: [
+          { setNumber: 1, targetReps: 10, actualWeightKg: 70, actualReps: 10, completed: true },
+          { setNumber: 2, targetReps: 8, actualWeightKg: 72.5, actualReps: 8, completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'log-hist-9',
+    athleteId: 'ath-1',
+    athleteName: 'Marco Rossi',
+    routineId: 'routine-1',
+    routineTitle: 'Protocollo Uomo Ipertrofia Spinta/Trazione/Gambe',
+    splitIndex: 2,
+    splitName: 'Split C (Venerdì) - Gambe & Addome',
+    totalVolumeKg: 6400,
+    durationMinutes: 59,
+    completedAt: '2026-09-04T18:10:00.000Z',
+    exercisesData: [
+      {
+        id: 'ex-3',
+        name: 'Squat con Bilanciere',
+        muscle: 'Gambe',
+        restSeconds: 120,
+        targetRPE: 8,
+        sets: [
+          { setNumber: 1, targetReps: 8, actualWeightKg: 102.5, actualReps: 8, completed: true },
+          { setNumber: 2, targetReps: 6, actualWeightKg: 105, actualReps: 6, completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'log-hist-10',
+    athleteId: 'ath-1',
+    athleteName: 'Marco Rossi',
+    routineId: 'routine-1',
+    routineTitle: 'Protocollo Uomo Ipertrofia Spinta/Trazione/Gambe',
+    splitIndex: 0,
+    splitName: 'Split A (Lunedì) - Petto & Spalle',
+    totalVolumeKg: 4980,
+    durationMinutes: 53,
+    completedAt: '2026-09-07T18:30:00.000Z',
+    exercisesData: [
+      {
+        id: 'ex-1',
+        name: 'Panca Piana con Bilanciere',
+        muscle: 'Petto',
+        restSeconds: 90,
+        targetRPE: 8,
+        sets: [
+          { setNumber: 1, targetReps: 8, actualWeightKg: 77.5, actualReps: 8, completed: true, feedbackTag: 'easy' },
+          { setNumber: 2, targetReps: 6, actualWeightKg: 80, actualReps: 6, completed: true, feedbackTag: 'limit' },
+          { setNumber: 3, targetReps: 6, actualWeightKg: 82.5, actualReps: 6, completed: true, feedbackTag: 'limit' }
+        ]
+      },
+      {
+        id: 'ex-2',
+        name: 'Spinte Manubri su Panca Inclinata',
+        muscle: 'Petto',
+        restSeconds: 75,
+        targetRPE: 8.5,
+        sets: [
+          { setNumber: 1, targetReps: 10, actualWeightKg: 28, actualReps: 10, completed: true },
+          { setNumber: 2, targetReps: 8, actualWeightKg: 28, actualReps: 8, completed: true }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'log-hist-11',
+    athleteId: 'ath-1',
+    athleteName: 'Marco Rossi',
+    routineId: 'routine-1',
+    routineTitle: 'Protocollo Uomo Ipertrofia Spinta/Trazione/Gambe',
+    splitIndex: 1,
+    splitName: 'Split B (Mercoledì) - Dorso & Braccia',
+    totalVolumeKg: 5120,
+    durationMinutes: 51,
+    completedAt: '2026-09-09T19:00:00.000Z',
+    exercisesData: [
+      {
+        id: 'ex-6',
+        name: 'Lat Machine Avanti Presa Larga',
+        muscle: 'Dorso',
+        restSeconds: 75,
+        targetRPE: 8,
+        sets: [
+          { setNumber: 1, targetReps: 10, actualWeightKg: 72.5, actualReps: 10, completed: true },
+          { setNumber: 2, targetReps: 8, actualWeightKg: 75, actualReps: 8, completed: true }
+        ]
+      }
+    ]
   }
 ];

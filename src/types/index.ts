@@ -110,8 +110,9 @@ export interface ExerciseDefinition {
 
 export interface ExerciseSet {
   setNumber: number;
-  suggestedWeightKg: number;
-  suggestedReps: number;
+  suggestedWeightKg?: number;
+  suggestedReps?: number;
+  targetReps?: number;
   actualWeightKg: number;
   actualReps: number;
   completed: boolean;
@@ -121,7 +122,8 @@ export interface ExerciseSet {
 }
 
 export interface WorkoutExercise {
-  exerciseId: string;
+  id?: string;
+  exerciseId?: string;
   name: string;
   muscle: string;
   sets: ExerciseSet[];
@@ -184,4 +186,18 @@ export interface ChatMessage {
     thumbnail: string;
     exerciseName: string;
   };
+}
+
+export interface WorkoutLogSession {
+  id: string;
+  athleteId: string;
+  athleteName: string;
+  routineId?: string;
+  routineTitle: string;
+  splitIndex: number;
+  splitName: string;
+  totalVolumeKg: number;
+  durationMinutes?: number;
+  exercisesData: WorkoutExercise[];
+  completedAt: string; // ISO string
 }
