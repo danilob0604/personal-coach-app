@@ -27,6 +27,16 @@ import {
   subscribeToSync, 
   publishSyncEvent 
 } from '../services/multiDeviceSync';
+import {
+  fetchAthletes,
+  upsertAthlete,
+  fetchMasterTemplates,
+  upsertMasterTemplate,
+  saveWorkoutLog,
+  saveFeedItem,
+  saveChatMessage as persistChatMessage,
+  subscribeToSupabaseRealtime
+} from '../services/dbService';
 
 interface FitnessContextType {
   // Language (i18n)
@@ -176,17 +186,39 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
   // Subscription state
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('starter');
   const [upgradeModalOpen, setUpgradeModalOpen] = useState<boolean>(false);
-  const [athletes, setAthletes] = useState<Athlete[]>(INITIAL_ATHLETES);
+  const [athletes, setAthletes] = useState<Athlete[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('personal_coach_athletes_v2');
+      if (cached) {
+        try { return JSON.parse(cached); } catch {}
+      }
+    }
+    return INITIAL_ATHLETES;
+  });
 
   // Active athlete profile for testing & multi-user simulation
   const [activeAthleteId, setActiveAthleteId] = useState<string>('ath-1');
   const activeAthlete = athletes.find(a => a.id === activeAthleteId) || athletes[0];
 
   // Master Templates library
-  const [masterTemplates, setMasterTemplates] = useState<WorkoutRoutine[]>(MASTER_ROUTINE_TEMPLATES);
+  const [masterTemplates, setMasterTemplates] = useState<WorkoutRoutine[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('personal_coach_templates_v2');
+      if (cached) {
+        try { return JSON.parse(cached); } catch {}
+      }
+    }
+    return MASTER_ROUTINE_TEMPLATES;
+  });
 
-  // Active workout in session
+  // Active workout in session (persisted so reload never loses progress)
   const [activeWorkout, setActiveWorkout] = useState<WorkoutRoutine>(() => {
+    if (typeof window !== 'undefined') {
+      const savedSession = localStorage.getItem('personal_coach_active_workout');
+      if (savedSession) {
+        try { return JSON.parse(savedSession); } catch {}
+      }
+    }
     const routine = activeAthlete?.assignedRoutine || SAMPLE_WORKOUT_ROUTINE;
     if (routine.splits && routine.splits.length > 0) {
       return {
@@ -215,6 +247,45 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
       setIsWorkoutFinished(false);
     }
   }, [activeAthleteId, activeAthlete?.assignedRoutine]);
+
+  // Save active workout to localStorage on every state change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('personal_coach_active_workout', JSON.stringify(activeWorkout));
+    }
+  }, [activeWorkout]);
+
+  // Load latest data from Supabase on mount & connect to Realtime channel
+  useEffect(() => {
+    fetchAthletes().then(data => {
+      if (data && data.length > 0) setAthletes(data);
+    });
+    fetchMasterTemplates().then(data => {
+      if (data && data.length > 0) setMasterTemplates(data);
+    });
+
+    const unsubscribeRealtime = subscribeToSupabaseRealtime({
+      onNewWorkoutLog: (log) => {
+        showToast(`⚡ [Supabase Realtime] Nuova sessione registrata da ${log.athlete_name}!`);
+      },
+      onNewFeedItem: (item) => {
+        setFeed(prev => [item, ...prev]);
+      },
+      onNewChatMessage: (msg) => {
+        setChatMessages(prev => {
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      },
+      onAthleteUpdated: (updated) => {
+        setAthletes(prev => prev.map(a => a.id === updated.id ? { ...a, ...updated } : a));
+      }
+    });
+
+    return () => {
+      unsubscribeRealtime?.();
+    };
+  }, []);
 
   // Rest Timer state with wall-clock targetEndTime for absolute accuracy on screen sleep
   const [restTimer, setRestTimer] = useState<{
@@ -407,13 +478,19 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     setAthletes(prev => [newAthlete, ...prev]);
+    upsertAthlete(newAthlete);
     showToast(`✅ Atleta ${newAthlete.name} aggiunto con successo! Slot rimanenti: ${maxAthletes - (activeAthletesCount + 1)}.`);
     return true;
   };
 
   // Archive athlete to free up slot
   const archiveAthlete = (id: string) => {
-    setAthletes(prev => prev.map(a => a.id === id ? { ...a, status: 'archived' } : a));
+    setAthletes(prev => {
+      const updated = prev.map(a => a.id === id ? { ...a, status: 'archived' as const } : a);
+      const target = updated.find(a => a.id === id);
+      if (target) upsertAthlete(target);
+      return updated;
+    });
     showToast('📦 Atleta archiviato. Lo slot è stato liberato!');
   };
 
@@ -424,7 +501,12 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
       showToast(`⚠️ Impossibile ripristinare: hai raggiunto il limite massimo di ${maxAthletes} atleti.`);
       return false;
     }
-    setAthletes(prev => prev.map(a => a.id === id ? { ...a, status: 'active' } : a));
+    setAthletes(prev => {
+      const updated = prev.map(a => a.id === id ? { ...a, status: 'active' as const } : a);
+      const target = updated.find(a => a.id === id);
+      if (target) upsertAthlete(target);
+      return updated;
+    });
     showToast('✅ Atleta ripristinato con successo.');
     return true;
   };
@@ -440,6 +522,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
 
     setAthletes(current => current.map(a => a.id === updatedAthlete.id ? updatedAthlete : a));
+    upsertAthlete(updatedAthlete);
     showToast(`✅ Anagrafica e cartella di ${updatedAthlete.name} aggiornata con successo!`);
   };
 
@@ -610,12 +693,14 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
       assignedAthleteName: undefined
     };
     setMasterTemplates(prev => [newTemplate, ...prev]);
+    upsertMasterTemplate(newTemplate);
     showToast(`💾 Modello "${routine.title}" salvato nella Libreria Master!`);
   };
 
   // Update existing template in library
   const updateMasterTemplate = (routine: WorkoutRoutine) => {
     setMasterTemplates(prev => prev.map(t => t.id === routine.id ? routine : t));
+    upsertMasterTemplate(routine);
     showToast(`💾 Scheda "${routine.title}" aggiornata con successo!`);
   };
 
@@ -746,6 +831,26 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     setFeed(prev => [newFeedItem, ...prev]);
+
+    // Persist workout log & feed item to Supabase & cache
+    saveWorkoutLog({
+      id: `log-${Date.now()}`,
+      athlete_id: activeAthlete.id,
+      athlete_name: activeAthlete.name,
+      routine_id: activeWorkout.id,
+      routine_title: activeWorkout.title,
+      split_index: activeWorkout.activeSplitIndex || 0,
+      split_name: activeWorkout.splits?.[activeWorkout.activeSplitIndex || 0]?.name || 'Split Sessione',
+      total_volume_kg: totalVolumeKg,
+      exercises_data: activeWorkout.exercises,
+      completed_at: new Date().toISOString()
+    });
+    saveFeedItem(newFeedItem);
+
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('personal_coach_active_workout');
+    }
+
     showToast('🚀 Allenamento salvato! Il tuo Personal Trainer ha ricevuto la notifica in tempo reale.');
   };
 
@@ -804,6 +909,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     setChatMessages(prev => [...prev, newMsg]);
+    persistChatMessage(newMsg);
 
     // If athlete sent video, notify trainer in feed
     if (includeVideo && currentRole === 'athlete') {
@@ -819,6 +925,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
         requiresReview: true
       };
       setFeed(prev => [feedVideoAlert, ...prev]);
+      saveFeedItem(feedVideoAlert);
     }
 
     publishSyncEvent('CHAT_MESSAGE', newMsg);

@@ -172,6 +172,7 @@ export interface LiveActivityFeedItem {
 
 export interface ChatMessage {
   id: string;
+  athleteId?: string;
   sender: 'trainer' | 'athlete';
   senderName: string;
   text: string;
