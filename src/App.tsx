@@ -150,6 +150,19 @@ const MainAppContent: React.FC = () => {
         )}
       </main>
 
+      {/* Global Application Footer */}
+      <footer className="mt-auto pb-20 sm:pb-4 pt-3 px-4 border-t border-slate-200/80 bg-white/90 backdrop-blur-xs text-center">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1 sm:gap-2 text-[11px] font-mono text-slate-500">
+          <div className="flex items-center gap-1.5 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block animate-pulse" />
+            <span>Prodotto da <strong className="text-slate-800 font-bold">VortexTech soluzioni informatiche</strong></span>
+          </div>
+          <div className="text-[10px] text-slate-400">
+            Personal Coach Pro Suite • Tutti i diritti riservati
+          </div>
+        </div>
+      </footer>
+
       {/* Modals & Audio/Visual Feedbacks */}
       <RestTimerModal />
       <UpgradeModal />

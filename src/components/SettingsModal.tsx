@@ -242,6 +242,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
           <div className="h-px bg-slate-100" />
 
+          {/* VortexTech Production Badge */}
+          <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white p-3.5 rounded-2xl border border-blue-900/50 shadow-sm space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-mono uppercase tracking-widest text-blue-400 font-black flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-blue-400" />
+                SVILUPPO & PARTNER TECNOLOGICO
+              </span>
+              <span className="text-[9px] font-mono bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30 font-bold">
+                Official
+              </span>
+            </div>
+            <p className="text-xs font-mono font-bold text-slate-100">
+              Prodotto da <span className="text-white font-black underline decoration-blue-500 underline-offset-2">VortexTech soluzioni informatiche</span>
+            </p>
+            <p className="text-[10px] text-slate-400 font-mono">
+              Ingegneria software per personal trainer, gestione atleti e telemetria sportiva avanzata.
+            </p>
+          </div>
+
           {/* System Info */}
           <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 pt-1">
             <span className="flex items-center gap-1">

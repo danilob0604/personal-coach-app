@@ -1,7 +1,7 @@
 {
   "name": "Personal Coach App",
   "short_name": "PersonalCoach",
-  "description": "Gestionale Personal Trainer & App Allenamento Iscritti",
+  "description": "Gestionale Personal Trainer & App Allenamento — Prodotto da VortexTech soluzioni informatiche",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0f172a",

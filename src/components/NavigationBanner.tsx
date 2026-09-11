@@ -50,9 +50,9 @@ export const NavigationBanner: React.FC = () => {
                 {t.nav.systemTag}
               </span>
             </div>
-            <p className="text-[10px] font-mono tracking-wide text-slate-400 uppercase hidden md:block">
-              {t.nav.subTitle}
-            </p>
+            <div className="flex items-center gap-1 text-[8px] sm:text-[10px] font-mono tracking-wide text-slate-400">
+              <span>Prodotto da <strong className="text-blue-400 font-bold">VortexTech soluzioni informatiche</strong></span>
+            </div>
           </div>
         </div>
 
