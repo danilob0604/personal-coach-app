@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import type { WorkoutExercise } from '../../types';
 import { ExerciseVideoModal } from '../../components/ExerciseVideoModal';
+import { PlateCalculatorModal } from '../../components/PlateCalculatorModal';
+import { SetFeedbackModal, type SetFeedbackTag } from '../../components/SetFeedbackModal';
 import { getMuscleGroupTheme } from '../../utils/muscleThemes';
 import { 
   translateExerciseName, 
@@ -46,6 +48,7 @@ export const AthleteApp: React.FC = () => {
     setActiveSplit,
     toggleSetComplete, 
     updateSetValues, 
+    setSetFeedback,
     finishWorkout, 
     isWorkoutFinished, 
     setIsWorkoutFinished, 
@@ -72,6 +75,24 @@ export const AthleteApp: React.FC = () => {
   const [chatInput, setChatInput] = useState('');
   const [videoModalExercise, setVideoModalExercise] = useState<WorkoutExercise | null>(null);
   const [isTimerMinimized, setIsTimerMinimized] = useState(false);
+
+  // Plate Calculator Modal state
+  const [plateModal, setPlateModal] = useState<{
+    isOpen: boolean;
+    targetWeightKg: number;
+    exerciseName: string;
+  } | null>(null);
+
+  // Set Feedback & Pain Alert Modal state
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    exerciseIndex: number;
+    setIndex: number;
+    exerciseName: string;
+    setNumber: number;
+    currentTag?: SetFeedbackTag;
+    currentNote?: string;
+  } | null>(null);
 
   // Self Check-in Form state
   const [prevAthleteId, setPrevAthleteId] = useState(athlete?.id);
@@ -602,8 +623,8 @@ export const AthleteApp: React.FC = () => {
                               </div>
 
                               {/* Console Inputs (High contrast dark pods) */}
-                              <div className="flex items-center gap-1.5">
-                                <div className={`flex items-center gap-1 text-white px-2 py-1 rounded-md border shadow-xs ${
+                              <div className="flex items-center gap-1 sm:gap-1.5">
+                                <div className={`flex items-center gap-1 text-white px-1.5 sm:px-2 py-1 rounded-md border shadow-xs ${
                                   set.completed ? 'bg-slate-950 border-emerald-500/40' : 'bg-slate-900 border-slate-800'
                                 }`}>
                                   <input
@@ -626,9 +647,23 @@ export const AthleteApp: React.FC = () => {
                                   <span className="text-[8px] sm:text-[9px] text-amber-400 font-mono font-black">KG</span>
                                 </div>
 
+                                {/* Plate Calculator Barbell Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => setPlateModal({
+                                    isOpen: true,
+                                    targetWeightKg: set.actualWeightKg,
+                                    exerciseName: exercise.name
+                                  })}
+                                  className="p-1 sm:p-1.5 rounded-md bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 transition-colors cursor-pointer shadow-xs shrink-0"
+                                  title="Calcola dischi per bilanciere"
+                                >
+                                  <Dumbbell className="w-3 h-3" />
+                                </button>
+
                                 <span className="text-slate-400 font-mono text-xs font-black">×</span>
 
-                                <div className={`flex items-center gap-1 text-white px-2 py-1 rounded-md border shadow-xs ${
+                                <div className={`flex items-center gap-1 text-white px-1.5 sm:px-2 py-1 rounded-md border shadow-xs ${
                                   set.completed ? 'bg-slate-950 border-emerald-500/40' : 'bg-slate-900 border-slate-800'
                                 }`}>
                                   <input
@@ -650,6 +685,40 @@ export const AthleteApp: React.FC = () => {
                                   />
                                   <span className="text-[8px] sm:text-[9px] text-cyan-400 font-mono font-black">{t.athlete.repsAbbr}</span>
                                 </div>
+
+                                {/* Sensation / Pain Alert Memo Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => setFeedbackModal({
+                                    isOpen: true,
+                                    exerciseIndex: exIndex,
+                                    setIndex,
+                                    exerciseName: exercise.name,
+                                    setNumber: set.setNumber,
+                                    currentTag: set.feedbackTag,
+                                    currentNote: set.feedbackNote
+                                  })}
+                                  className={`p-1 sm:p-1.5 rounded-md border transition-all cursor-pointer shadow-xs shrink-0 ${
+                                    set.feedbackTag === 'pain'
+                                      ? 'bg-rose-500/20 text-rose-600 border-rose-400 ring-1 ring-rose-400/30 animate-pulse'
+                                      : set.feedbackTag === 'limit'
+                                      ? 'bg-amber-500/20 text-amber-600 border-amber-400'
+                                      : set.feedbackTag === 'easy'
+                                      ? 'bg-emerald-500/20 text-emerald-600 border-emerald-400'
+                                      : 'bg-white hover:bg-slate-100 text-slate-400 border-slate-300'
+                                  }`}
+                                  title={set.feedbackTag ? `Sensazione: ${set.feedbackTag}` : "Aggiungi sensazione / segnala fastidio"}
+                                >
+                                  {set.feedbackTag === 'pain' ? (
+                                    <span className="text-[10px] leading-none font-bold">🚨</span>
+                                  ) : set.feedbackTag === 'limit' ? (
+                                    <span className="text-[10px] leading-none font-bold">🔥</span>
+                                  ) : set.feedbackTag === 'easy' ? (
+                                    <span className="text-[10px] leading-none font-bold">🟢</span>
+                                  ) : (
+                                    <MessageSquare className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                  )}
+                                </button>
                               </div>
 
                               {/* THE TACTICAL CHECKMARK BUTTON (Once validated, permanently locked) */}
@@ -1495,6 +1564,30 @@ export const AthleteApp: React.FC = () => {
             setActiveTab('chat');
             setVideoModalExercise(null);
           }}
+        />
+      )}
+
+      {/* Plate Calculator Barbell Modal */}
+      {plateModal && plateModal.isOpen && (
+        <PlateCalculatorModal
+          targetWeightKg={plateModal.targetWeightKg}
+          exerciseName={plateModal.exerciseName}
+          onClose={() => setPlateModal(null)}
+        />
+      )}
+
+      {/* Set Feedback & Pain Alert Modal */}
+      {feedbackModal && feedbackModal.isOpen && (
+        <SetFeedbackModal
+          exerciseName={feedbackModal.exerciseName}
+          setNumber={feedbackModal.setNumber}
+          initialTag={feedbackModal.currentTag}
+          initialNote={feedbackModal.currentNote}
+          onSave={(tag, note) => {
+            setSetFeedback(feedbackModal.exerciseIndex, feedbackModal.setIndex, tag, note);
+            setFeedbackModal(null);
+          }}
+          onClose={() => setFeedbackModal(null)}
         />
       )}
 

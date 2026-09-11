@@ -116,6 +116,8 @@ export interface ExerciseSet {
   actualReps: number;
   completed: boolean;
   isPR?: boolean;
+  feedbackTag?: 'easy' | 'limit' | 'pain';
+  feedbackNote?: string;
 }
 
 export interface WorkoutExercise {

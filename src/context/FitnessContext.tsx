@@ -32,6 +32,7 @@ import {
   upsertAthlete,
   fetchMasterTemplates,
   upsertMasterTemplate,
+  fetchFeedItems,
   saveWorkoutLog,
   saveFeedItem,
   saveChatMessage as persistChatMessage,
@@ -87,6 +88,7 @@ interface FitnessContextType {
   setActiveSplit: (splitIndex: number) => void;
   toggleSetComplete: (exerciseIndex: number, setIndex: number) => void;
   updateSetValues: (exerciseIndex: number, setIndex: number, weight: number, reps: number) => void;
+  setSetFeedback: (exerciseIndex: number, setIndex: number, tag: 'easy' | 'limit' | 'pain', note?: string) => void;
   finishWorkout: () => void;
   isWorkoutFinished: boolean;
   setIsWorkoutFinished: (done: boolean) => void;
@@ -262,6 +264,9 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
     fetchMasterTemplates().then(data => {
       if (data && data.length > 0) setMasterTemplates(data);
+    });
+    fetchFeedItems().then(data => {
+      if (data && data.length > 0) setFeed(data);
     });
 
     const unsubscribeRealtime = subscribeToSupabaseRealtime({
@@ -788,6 +793,46 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
   };
 
+  // Set feedback (easy / limit / pain)
+  const setSetFeedback = (exerciseIndex: number, setIndex: number, tag: 'easy' | 'limit' | 'pain', note?: string) => {
+    setActiveWorkout(prev => {
+      const updatedExercises = [...prev.exercises];
+      const targetExercise = { ...updatedExercises[exerciseIndex] };
+      if (!targetExercise) return prev;
+      const updatedSets = [...targetExercise.sets];
+      if (!updatedSets[setIndex]) return prev;
+      updatedSets[setIndex] = {
+        ...updatedSets[setIndex],
+        feedbackTag: tag,
+        feedbackNote: note
+      };
+      targetExercise.sets = updatedSets;
+      updatedExercises[exerciseIndex] = targetExercise;
+      return { ...prev, exercises: updatedExercises };
+    });
+
+    if (tag === 'pain') {
+      const painAlertItem: LiveActivityFeedItem = {
+        id: `feed-pain-${Date.now()}`,
+        athleteId: activeAthlete.id,
+        athleteName: activeAthlete.name,
+        athleteAvatar: activeAthlete.avatar,
+        type: 'inactivity_alert',
+        title: `🚨 SEGNALAZIONE DOLORE: ${activeWorkout.exercises[exerciseIndex]?.name || 'Esercizio'} (Serie ${setIndex + 1})`,
+        detail: note ? `Nota Atleta: "${note}"` : 'Fastidio o dolore acuto riscontrato durante l\'esecuzione.',
+        timestamp: 'Adesso',
+        requiresReview: true
+      };
+      setFeed(prev => [painAlertItem, ...prev]);
+      saveFeedItem(painAlertItem);
+      showToast('⚠️ Allerta dolore inviata in diretta al tuo Personal Trainer.');
+    } else if (tag === 'easy') {
+      showToast('🟢 Serie registrata come facile! Il coach ne terrà conto.');
+    } else {
+      showToast('🟡 Serie al limite registrata!');
+    }
+  };
+
   // Switch active split for athlete workout session
   const setActiveSplit = (splitIndex: number) => {
     setActiveWorkout(prev => {
@@ -971,6 +1016,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
         setActiveSplit,
         toggleSetComplete,
         updateSetValues,
+        setSetFeedback,
         finishWorkout,
         isWorkoutFinished,
         setIsWorkoutFinished,

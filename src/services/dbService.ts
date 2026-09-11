@@ -7,7 +7,8 @@ import type {
 } from '../types';
 import { 
   INITIAL_ATHLETES, 
-  MASTER_ROUTINE_TEMPLATES 
+  MASTER_ROUTINE_TEMPLATES,
+  INITIAL_LIVE_FEED
 } from '../data/mockData';
 
 // Local storage keys for resilient offline-first caching
@@ -215,7 +216,49 @@ export async function saveWorkoutLog(log: WorkoutLogItem): Promise<void> {
 // -----------------------------------------------------------------------------
 // 4. LIVE FEED & CHAT
 // -----------------------------------------------------------------------------
+export async function fetchFeedItems(): Promise<LiveActivityFeedItem[]> {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase.from('live_feed').select('*').order('created_at', { ascending: false }).limit(40);
+      if (!error && data && data.length > 0) {
+        const mapped: LiveActivityFeedItem[] = data.map(d => ({
+          id: d.id,
+          athleteId: d.athlete_id,
+          athleteName: d.athlete_name,
+          athleteAvatar: d.athlete_avatar,
+          type: d.type,
+          title: d.title,
+          detail: d.detail,
+          metric: d.metric,
+          timestamp: 'Recente'
+        }));
+        localStorage.setItem(STORAGE_KEYS.FEED, JSON.stringify(mapped));
+        return mapped;
+      }
+    } catch (e) {
+      console.warn('Supabase fetchFeedItems error, fallback to cache:', e);
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    const cached = localStorage.getItem(STORAGE_KEYS.FEED);
+    if (cached) {
+      try { return JSON.parse(cached); } catch {}
+    }
+  }
+  return INITIAL_LIVE_FEED;
+}
+
 export async function saveFeedItem(item: LiveActivityFeedItem): Promise<void> {
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem(STORAGE_KEYS.FEED);
+      const list: LiveActivityFeedItem[] = cached ? JSON.parse(cached) : [...INITIAL_LIVE_FEED];
+      list.unshift(item);
+      localStorage.setItem(STORAGE_KEYS.FEED, JSON.stringify(list.slice(0, 50)));
+    } catch {}
+  }
+
   if (isSupabaseConfigured && supabase) {
     try {
       await supabase.from('live_feed').insert([{
@@ -268,10 +311,34 @@ export function subscribeToSupabaseRealtime(callbacks: {
       callbacks.onNewWorkoutLog?.(payload.new);
     })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_feed' }, payload => {
-      callbacks.onNewFeedItem?.(payload.new);
+      const d = payload.new;
+      if (d) {
+        callbacks.onNewFeedItem?.({
+          id: d.id,
+          athleteId: d.athlete_id,
+          athleteName: d.athlete_name,
+          athleteAvatar: d.athlete_avatar,
+          type: d.type,
+          title: d.title,
+          detail: d.detail,
+          metric: d.metric,
+          timestamp: 'Adesso'
+        });
+      }
     })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
-      callbacks.onNewChatMessage?.(payload.new);
+      const m = payload.new;
+      if (m) {
+        callbacks.onNewChatMessage?.({
+          id: m.id,
+          athleteId: m.athlete_id,
+          sender: m.sender,
+          senderName: m.sender_name,
+          text: m.text,
+          videoAttachment: m.video_attachment,
+          timestamp: 'Adesso'
+        });
+      }
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'athletes' }, payload => {
       callbacks.onAthleteUpdated?.(payload.new);
