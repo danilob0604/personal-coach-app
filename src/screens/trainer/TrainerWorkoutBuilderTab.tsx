@@ -5,6 +5,7 @@ import type { ExerciseDefinition, WorkoutExercise, WorkoutRoutine, WorkoutSplit 
 import { RoutineDetailModal } from '../../components/RoutineDetailModal';
 import { ExerciseVideoModal } from '../../components/ExerciseVideoModal';
 import { getMuscleGroupTheme } from '../../utils/muscleThemes';
+import { computeSupersetLabels } from '../../utils/supersetUtils';
 import { 
   Plus, 
   Trash2, 
@@ -19,7 +20,10 @@ import {
   CheckCircle2, 
   Clock,
   Video,
-  Calendar
+  Calendar,
+  Link2,
+  Unlink,
+  Zap
 } from 'lucide-react';
 import { 
   translateRoutineTitle, 
@@ -113,10 +117,12 @@ export const TrainerWorkoutBuilderTab: React.FC = () => {
           exerciseId: 'ex-2',
           name: 'Spinte Manubri su Panca Inclinata',
           muscle: 'Petto',
-          restSeconds: 75,
+          restSeconds: 0,
           targetRPE: 8,
           tempo: '3-0-1-0',
-          trainerNotes: 'Panca a 30°, massima apertura toracica per migliorare la postura.',
+          trainerNotes: 'Panca a 30°, massima apertura toracica per migliorare la postura. Nessun recupero, passa subito al lat machine!',
+          supersetGroupId: 'ss-builder-b1',
+          supersetLabel: '01A',
           sets: [
             { setNumber: 1, suggestedWeightKg: 12, suggestedReps: 12, actualWeightKg: 12, actualReps: 12, completed: false },
             { setNumber: 2, suggestedWeightKg: 14, suggestedReps: 10, actualWeightKg: 14, actualReps: 10, completed: false }
@@ -126,10 +132,12 @@ export const TrainerWorkoutBuilderTab: React.FC = () => {
           exerciseId: 'ex-6',
           name: 'Lat Machine Presa Inversa',
           muscle: 'Dorso',
-          restSeconds: 60,
+          restSeconds: 75,
           targetRPE: 8,
           tempo: '3-0-1-0',
-          trainerNotes: 'Spalle basse, deprimi le scapole.',
+          trainerNotes: 'Spalle basse, deprimi le scapole. Recupero completo al termine del superset.',
+          supersetGroupId: 'ss-builder-b1',
+          supersetLabel: '01B',
           sets: [
             { setNumber: 1, suggestedWeightKg: 35, suggestedReps: 12, actualWeightKg: 35, actualReps: 12, completed: false },
             { setNumber: 2, suggestedWeightKg: 40, suggestedReps: 10, actualWeightKg: 40, actualReps: 10, completed: false }
@@ -302,6 +310,55 @@ export const TrainerWorkoutBuilderTab: React.FC = () => {
     setViewMode('create');
   };
 
+  const handleToggleSuperset = (exIndex: number) => {
+    setSplits(prev => {
+      const updated = [...prev];
+      if (!updated[activeSplitIndex]) return prev;
+      const targetSplit = { ...updated[activeSplitIndex] };
+      const exercises = [...targetSplit.exercises];
+      if (exIndex < 0 || exIndex >= exercises.length - 1) return prev;
+
+      const currentEx = exercises[exIndex];
+      const nextEx = exercises[exIndex + 1];
+
+      const areLinked = currentEx.supersetGroupId && currentEx.supersetGroupId === nextEx.supersetGroupId;
+
+      if (areLinked) {
+        // Disconnect them
+        exercises[exIndex + 1] = {
+          ...nextEx,
+          supersetGroupId: undefined
+        };
+        // If no other exercises share currentEx.supersetGroupId, clear it too
+        const othersInGroup = exercises.filter((e, idx) => idx !== exIndex && idx !== exIndex + 1 && e.supersetGroupId === currentEx.supersetGroupId);
+        if (othersInGroup.length === 0) {
+          exercises[exIndex] = {
+            ...currentEx,
+            supersetGroupId: undefined
+          };
+        }
+        targetSplit.exercises = computeSupersetLabels(exercises);
+        showToast('✂️ Superset separato.');
+      } else {
+        // Connect them into a superset!
+        const targetGroupId = currentEx.supersetGroupId || nextEx.supersetGroupId || `ss-${Date.now()}`;
+        exercises[exIndex] = {
+          ...currentEx,
+          supersetGroupId: targetGroupId
+        };
+        exercises[exIndex + 1] = {
+          ...nextEx,
+          supersetGroupId: targetGroupId
+        };
+        targetSplit.exercises = computeSupersetLabels(exercises);
+        showToast('🔗 Esercizi uniti in Superset (01A + 01B)!');
+      }
+
+      updated[activeSplitIndex] = targetSplit;
+      return updated;
+    });
+  };
+
   const addExerciseFromCatalog = (ex: ExerciseDefinition) => {
     const newEx: WorkoutExercise = {
       exerciseId: ex.id,
@@ -323,7 +380,7 @@ export const TrainerWorkoutBuilderTab: React.FC = () => {
       const updated = [...prev];
       if (!updated[activeSplitIndex]) return prev;
       const targetSplit = { ...updated[activeSplitIndex] };
-      targetSplit.exercises = [...targetSplit.exercises, newEx];
+      targetSplit.exercises = computeSupersetLabels([...targetSplit.exercises, newEx]);
       updated[activeSplitIndex] = targetSplit;
       return updated;
     });
@@ -335,7 +392,7 @@ export const TrainerWorkoutBuilderTab: React.FC = () => {
       const updated = [...prev];
       if (!updated[activeSplitIndex]) return prev;
       const targetSplit = { ...updated[activeSplitIndex] };
-      targetSplit.exercises = targetSplit.exercises.filter((_, i) => i !== index);
+      targetSplit.exercises = computeSupersetLabels(targetSplit.exercises.filter((_, i) => i !== index));
       updated[activeSplitIndex] = targetSplit;
       return updated;
     });
@@ -905,6 +962,77 @@ export const TrainerWorkoutBuilderTab: React.FC = () => {
                 </div>
               </div>
 
+              {/* ========================================================================= */}
+              {/* PUNTO 6: VOLUME MUSCOLARE SETTIMANALE (OPZIONE 2: BARRA CHIP COMPATTA)    */}
+              {/* ========================================================================= */}
+              {(() => {
+                const muscleVolumes = (['Petto', 'Dorso', 'Gambe', 'Spalle', 'Braccia', 'Core'] as const).map(muscle => {
+                  let totalWeeklySets = 0;
+                  splits.forEach(s => {
+                    s.exercises.forEach(ex => {
+                      if (ex.muscle === muscle || ex.muscle?.toLowerCase().includes(muscle.toLowerCase())) {
+                        totalWeeklySets += (ex.sets?.length || 0);
+                      }
+                    });
+                  });
+                  return { muscle, sets: totalWeeklySets };
+                });
+
+                return (
+                  <div className="bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-4 shadow-sm space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-800 uppercase font-black tracking-wider">
+                        <Dumbbell className="w-3.5 h-3.5 text-blue-600" />
+                        <span>{language === 'it' ? 'Volume Muscolare Settimanale (Serie Totali nel Protocollo)' : language === 'es' ? 'Volumen Muscular Semanal (Series Totales en el Protocolo)' : 'Weekly Muscle Volume (Total Protocol Sets)'}</span>
+                      </div>
+                      <span className="text-[9px] font-mono text-slate-400 font-bold hidden sm:inline">
+                        {language === 'it' ? 'Target ottimale ipertrofia: 10-20 serie / gruppo' : language === 'es' ? 'Objetivo óptimo: 10-20 series / grupo' : 'Optimal hypertrophy: 10-20 sets / group'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                      {muscleVolumes.map(({ muscle, sets }) => {
+                        const mTheme = getMuscleGroupTheme(muscle, language);
+                        let badgeStyle = 'bg-slate-50 text-slate-600 border-slate-200';
+                        let badgeLabel = language === 'it' ? 'Non allenato' : language === 'es' ? 'No entrenado' : 'Untrained';
+
+                        if (sets >= 10 && sets <= 20) {
+                          badgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-400/30 font-black';
+                          badgeLabel = language === 'it' ? 'Ottimale 🟢' : language === 'es' ? 'Óptimo 🟢' : 'Optimal 🟢';
+                        } else if (sets > 20) {
+                          badgeStyle = 'bg-purple-50 text-purple-800 border-purple-300 font-bold';
+                          badgeLabel = language === 'it' ? 'Volume Alto ⚠️' : language === 'es' ? 'Volumen Alto ⚠️' : 'High Volume ⚠️';
+                        } else if (sets >= 6) {
+                          badgeStyle = 'bg-blue-50 text-blue-700 border-blue-200 font-bold';
+                          badgeLabel = language === 'it' ? 'Minimo Efficace' : language === 'es' ? 'Mínimo Eficaz' : 'Min Effective';
+                        } else if (sets > 0) {
+                          badgeStyle = 'bg-amber-50 text-amber-800 border-amber-200 font-medium';
+                          badgeLabel = language === 'it' ? 'Mantenimento' : language === 'es' ? 'Mantenimiento' : 'Maintenance';
+                        }
+
+                        return (
+                          <div
+                            key={muscle}
+                            className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono transition-all shadow-xs ${badgeStyle}`}
+                          >
+                            <span className="text-sm">{mTheme.icon}</span>
+                            <div>
+                              <div className="flex items-center gap-1.5 leading-none">
+                                <span className="font-black uppercase text-[11px] text-slate-900">{translateMuscleName(muscle, language)}:</span>
+                                <span className="font-mono font-black text-xs text-blue-700">{sets} {language === 'it' ? (sets === 1 ? 'serie' : 'serie') : 'sets'}</span>
+                              </div>
+                              <span className="text-[8px] uppercase tracking-wider font-bold block mt-0.5 opacity-90">
+                                {badgeLabel}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* INTERACTIVE MULTI-SPLIT ARCHITECTURE MANAGER */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4.5 space-y-3.5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
@@ -1038,122 +1166,184 @@ export const TrainerWorkoutBuilderTab: React.FC = () => {
                   const exTheme = getMuscleGroupTheme(ex.muscle || ex.name);
 
                   return (
-                    <div
-                      key={exIdx}
-                      className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      {/* Technogym Live Muscle Accent Stripe */}
-                      <div className={`h-1.5 w-full ${exTheme.lightStripe}`} />
+                    <React.Fragment key={ex.exerciseId || exIdx}>
+                      <div
+                        className={`rounded-2xl overflow-hidden transition-all ${
+                          ex.supersetGroupId
+                            ? 'bg-white border-2 border-violet-400/90 shadow-md ring-1 ring-violet-300/40'
+                            : 'bg-white border border-slate-200 shadow-sm hover:shadow-md'
+                        }`}
+                      >
+                        {/* Technogym Live Muscle Accent Stripe */}
+                        <div className={`h-1.5 w-full ${
+                          ex.supersetGroupId
+                            ? 'bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-600'
+                            : exTheme.lightStripe
+                        }`} />
 
-                      <div className="p-5 space-y-3.5">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className={`w-8 h-8 rounded-xl text-white flex items-center justify-center font-mono font-black text-xs shadow-xs ${exTheme.lightStripe}`}>
-                              0{exIdx + 1}
-                            </span>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">{translateExerciseName(ex.name, language)}</h4>
-                                <span className={`text-[9px] font-mono uppercase font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 ${exTheme.badgeBg}`}>
-                                  <span>{exTheme.icon}</span>
-                                  <span>{translateMuscleName(ex.muscle, language)}</span>
-                                </span>
-                              </div>
-                              <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest font-medium mt-0.5 block">
-                                {t.trainer.builder.restLabel} {ex.restSeconds}S
-                                {ex.tempo ? ` • TEMPO ${ex.tempo}` : ''}
+                        <div className="p-4 sm:p-5 space-y-3.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className={`w-9 h-8 rounded-xl text-white flex items-center justify-center font-mono font-black text-xs shadow-xs shrink-0 ${
+                                ex.supersetGroupId
+                                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600'
+                                  : exTheme.lightStripe
+                              }`}>
+                                {ex.supersetLabel || `0${exIdx + 1}`}
                               </span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight truncate">{translateExerciseName(ex.name, language)}</h4>
+                                  <span className={`text-[9px] font-mono uppercase font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 shrink-0 ${exTheme.badgeBg}`}>
+                                    <span>{exTheme.icon}</span>
+                                    <span>{translateMuscleName(ex.muscle, language)}</span>
+                                  </span>
+                                  {ex.supersetGroupId && (
+                                    <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-md bg-violet-100 text-violet-800 border border-violet-300 flex items-center gap-1 shadow-xs shrink-0">
+                                      <Zap className="w-2.5 h-2.5 text-violet-600 fill-current" />
+                                      SUPERSET {ex.supersetLabel}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest font-medium mt-0.5 block truncate">
+                                  {t.trainer.builder.restLabel} {ex.restSeconds}S
+                                  {ex.tempo ? ` • TEMPO ${ex.tempo}` : ''}
+                                </span>
+                                {ex.supersetGroupId && (
+                                  <div className="text-[10px] font-mono text-violet-700 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-md mt-1 flex items-center gap-1 font-bold">
+                                    <Zap className="w-3 h-3 text-violet-600 shrink-0 fill-current" />
+                                    <span>Esecuzione in superset continuo. Il recupero scatterà all'ultimo esercizio del gruppo.</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
 
-                      <div className="flex items-center gap-2">
-                        {/* Video Preview / Edit Button */}
-                        <button
-                          onClick={() => setVideoModalExercise(ex)}
-                          className={`px-2.5 py-1.5 rounded-xl text-[10px] font-mono font-black uppercase flex items-center gap-1.5 border transition-all cursor-pointer ${
-                            ex.isCoachCustomVideo
-                              ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 shadow-xs'
-                              : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
-                          }`}
-                          title="Video"
-                        >
-                          <Video className="w-3.5 h-3.5" />
-                          <span>{ex.isCoachCustomVideo ? (language === 'it' ? '📹 Video del Coach' : language === 'es' ? '📹 Video del Coach' : '📹 Coach Video') : (language === 'it' ? '📹 Video Guida' : language === 'es' ? '📹 Video Guía' : '📹 Video Guide')}</span>
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Video Preview / Edit Button */}
+                          <button
+                            onClick={() => setVideoModalExercise(ex)}
+                            className={`px-2.5 py-1.5 rounded-xl text-[10px] font-mono font-black uppercase flex items-center gap-1.5 border transition-all cursor-pointer ${
+                              ex.isCoachCustomVideo
+                                ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 shadow-xs'
+                                : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                            }`}
+                            title="Video"
+                          >
+                            <Video className="w-3.5 h-3.5" />
+                            <span>{ex.isCoachCustomVideo ? (language === 'it' ? '📹 Video del Coach' : language === 'es' ? '📹 Video del Coach' : '📹 Coach Video') : (language === 'it' ? '📹 Video Guida' : language === 'es' ? '📹 Video Guía' : '📹 Video Guide')}</span>
+                          </button>
 
+                          <button
+                            onClick={() => removeExercise(exIdx)}
+                            className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Sets Table with editable target load and reps */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs font-mono text-left">
+                          <thead>
+                            <tr className="text-slate-500 border-b border-slate-100 pb-2">
+                              <th className="py-1 uppercase text-[10px] font-bold">{t.trainer.builder.setCol}</th>
+                              <th className="py-1 uppercase text-[10px] font-bold">{t.trainer.builder.loadCol} (KG)</th>
+                              <th className="py-1 uppercase text-[10px] font-bold">{t.trainer.builder.repsCol}</th>
+                              <th className="py-1 uppercase text-[10px] text-right font-bold">{language === 'it' ? 'RECORD' : language === 'es' ? 'RÉCORD' : 'RECORD'}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {ex.sets.map((set, sIdx) => (
+                              <tr key={sIdx} className="text-slate-800">
+                                <td className="py-2 text-slate-500 font-bold">{t.trainer.builder.setCol} {set.setNumber}</td>
+                                <td className="py-2">
+                                  <input
+                                    type="number"
+                                    value={set.suggestedWeightKg}
+                                    onChange={(e) => updateSetValues(exIdx, sIdx, 'suggestedWeightKg', parseFloat(e.target.value) || 0)}
+                                    className="w-16 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-900 font-mono font-black text-xs focus:outline-none focus:border-blue-500 focus:bg-white"
+                                  /> <span className="text-blue-600 font-bold">KG</span>
+                                </td>
+                                <td className="py-2">
+                                  <input
+                                    type="number"
+                                    value={set.suggestedReps}
+                                    onChange={(e) => updateSetValues(exIdx, sIdx, 'suggestedReps', parseInt(e.target.value) || 0)}
+                                    className="w-14 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-900 font-mono font-black text-xs focus:outline-none focus:border-blue-500 focus:bg-white"
+                                  /> <span className="text-slate-500">{language === 'it' ? 'RIP.' : language === 'es' ? 'REPS' : 'REPS'}</span>
+                                </td>
+                                <td className="py-2 text-right">
+                                  {set.isPR ? (
+                                    <span className="text-[9px] font-mono uppercase bg-rose-50 text-rose-700 px-2 py-0.5 rounded font-black border border-rose-200">
+                                      🏆 {language === 'it' ? 'RECORD' : language === 'es' ? 'RÉCORD' : 'RECORD'}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-mono uppercase bg-slate-100 px-2 py-0.5 rounded text-slate-600 border border-slate-200 font-medium">
+                                      STANDARD
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                         <button
-                          onClick={() => removeExercise(exIdx)}
-                          className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                          onClick={() => addSetToExercise(exIdx)}
+                          className="flex items-center gap-1.5 text-xs font-mono text-blue-600 hover:underline font-bold cursor-pointer"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>{t.trainer.builder.addSet}</span>
                         </button>
+                        <span className="text-[11px] text-slate-500 font-mono truncate max-w-sm font-medium">
+                          {ex.trainerNotes}
+                        </span>
+                      </div>
                       </div>
                     </div>
 
-                    {/* Sets Table with editable target load and reps */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs font-mono text-left">
-                        <thead>
-                          <tr className="text-slate-500 border-b border-slate-100 pb-2">
-                            <th className="py-1 uppercase text-[10px] font-bold">{t.trainer.builder.setCol}</th>
-                            <th className="py-1 uppercase text-[10px] font-bold">{t.trainer.builder.loadCol} (KG)</th>
-                            <th className="py-1 uppercase text-[10px] font-bold">{t.trainer.builder.repsCol}</th>
-                            <th className="py-1 uppercase text-[10px] text-right font-bold">{language === 'it' ? 'RECORD' : language === 'es' ? 'RÉCORD' : 'RECORD'}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {ex.sets.map((set, sIdx) => (
-                            <tr key={sIdx} className="text-slate-800">
-                              <td className="py-2 text-slate-500 font-bold">{t.trainer.builder.setCol} {set.setNumber}</td>
-                              <td className="py-2">
-                                <input
-                                  type="number"
-                                  value={set.suggestedWeightKg}
-                                  onChange={(e) => updateSetValues(exIdx, sIdx, 'suggestedWeightKg', parseFloat(e.target.value) || 0)}
-                                  className="w-16 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-900 font-mono font-black text-xs focus:outline-none focus:border-blue-500 focus:bg-white"
-                                /> <span className="text-blue-600 font-bold">KG</span>
-                              </td>
-                              <td className="py-2">
-                                <input
-                                  type="number"
-                                  value={set.suggestedReps}
-                                  onChange={(e) => updateSetValues(exIdx, sIdx, 'suggestedReps', parseInt(e.target.value) || 0)}
-                                  className="w-14 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-900 font-mono font-black text-xs focus:outline-none focus:border-blue-500 focus:bg-white"
-                                /> <span className="text-slate-500">{language === 'it' ? 'RIP.' : language === 'es' ? 'REPS' : 'REPS'}</span>
-                              </td>
-                              <td className="py-2 text-right">
-                                {set.isPR ? (
-                                  <span className="text-[9px] font-mono uppercase bg-rose-50 text-rose-700 px-2 py-0.5 rounded font-black border border-rose-200">
-                                    🏆 {language === 'it' ? 'RECORD' : language === 'es' ? 'RÉCORD' : 'RECORD'}
-                                  </span>
-                                ) : (
-                                  <span className="text-[9px] font-mono uppercase bg-slate-100 px-2 py-0.5 rounded text-slate-600 border border-slate-200 font-medium">
-                                    STANDARD
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                      <button
-                        onClick={() => addSetToExercise(exIdx)}
-                        className="flex items-center gap-1.5 text-xs font-mono text-blue-600 hover:underline font-bold cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>{t.trainer.builder.addSet}</span>
-                      </button>
-                      <span className="text-[11px] text-slate-500 font-mono truncate max-w-sm font-medium">
-                        {ex.trainerNotes}
-                      </span>
-                    </div>
-                    </div>
-                  </div>
-                );
-              })}
+                    {/* Superset Inter-Exercise Linker Bridge */}
+                    {exIdx < currentExercises.length - 1 && (() => {
+                      const nextEx = currentExercises[exIdx + 1];
+                      const areLinked = ex.supersetGroupId && ex.supersetGroupId === nextEx.supersetGroupId;
+                      return (
+                        <div className="flex items-center justify-center my-2.5">
+                          {areLinked ? (
+                            <div className="flex flex-wrap items-center justify-center gap-2 bg-gradient-to-r from-violet-50 via-indigo-50 to-violet-50 border border-violet-300 px-4 py-2 rounded-2xl shadow-xs">
+                              <Zap className="w-3.5 h-3.5 text-violet-600 fill-current animate-pulse" />
+                              <span className="text-[10px] sm:text-xs font-mono font-black uppercase text-violet-950 tracking-wider">
+                                SUPERSET ATTIVO ({ex.supersetLabel} + {nextEx.supersetLabel}) • ZERO RECUPERO INTERMEDIO
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSuperset(exIdx)}
+                                className="ml-2 px-2.5 py-1 rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 font-mono text-[10px] font-bold uppercase transition-colors cursor-pointer shadow-xs flex items-center gap-1"
+                                title="Separa questo superset in due esercizi singoli distinti"
+                              >
+                                <Unlink className="w-3.5 h-3.5" />
+                                <span>Separa Superset</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSuperset(exIdx)}
+                              className="px-3.5 py-1.5 rounded-xl bg-slate-50 hover:bg-violet-50 text-slate-600 hover:text-violet-700 border border-dashed border-slate-300 hover:border-violet-300 font-mono text-[10px] font-bold uppercase transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs group"
+                              title="Unisci questo esercizio con il successivo in un Superset (01A + 01B)"
+                            >
+                              <Link2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-violet-600" />
+                              <span>Unisci {ex.supersetLabel || `0${exIdx + 1}`} e {nextEx.supersetLabel || `0${exIdx + 2}`} in Superset (01A + 01B)</span>
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </React.Fragment>
+                  );
+                })}
               </div>
             </div>
 

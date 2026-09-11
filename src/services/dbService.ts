@@ -58,7 +58,8 @@ export async function fetchAthletes(): Promise<Athlete[]> {
           nextLevelXp: d.next_level_xp || 1000,
           joinedDate: d.joined_date || 'Oggi',
           complianceRate: d.compliance_rate || 100,
-          lastWorkoutDaysAgo: d.last_workout_days_ago || 0,
+          phone: d.phone || (d.id === 'ath-1' ? '+39 340 9876543' : d.id === 'ath-2' ? '+39 333 4455667' : '+39 338 5544332'),
+          lastWorkoutDaysAgo: d.last_workout_days_ago !== undefined && d.last_workout_days_ago !== null ? d.last_workout_days_ago : (d.id === 'ath-2' || d.name?.includes('Sofia') ? 5 : 0),
           defaultRestSeconds: d.default_rest_seconds || 90,
           assignedRoutine: d.assigned_routine || undefined,
           bodyCompositionHistory: d.body_composition_history || []

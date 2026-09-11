@@ -21,6 +21,7 @@ import {
 } from '../data/mockData';
 import { soundManager } from '../utils/audioFeedback';
 import { wakeLockManager } from '../utils/wakeLock';
+import { computeSupersetLabels } from '../utils/supersetUtils';
 import { TRANSLATIONS, type Language, type Translations } from '../i18n/translations';
 import { 
   initMultiDeviceSync, 
@@ -218,7 +219,13 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (typeof window !== 'undefined') {
       const savedSession = localStorage.getItem('personal_coach_active_workout');
       if (savedSession) {
-        try { return JSON.parse(savedSession); } catch {}
+        try { 
+          const parsed = JSON.parse(savedSession);
+          if (parsed && parsed.exercises) {
+            parsed.exercises = computeSupersetLabels(parsed.exercises);
+          }
+          return parsed;
+        } catch {}
       }
     }
     const routine = activeAthlete?.assignedRoutine || SAMPLE_WORKOUT_ROUTINE;
@@ -226,10 +233,13 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
       return {
         ...routine,
         activeSplitIndex: 0,
-        exercises: routine.splits[0].exercises
+        exercises: computeSupersetLabels(routine.splits[0].exercises)
       };
     }
-    return routine;
+    return {
+      ...routine,
+      exercises: computeSupersetLabels(routine.exercises || [])
+    };
   });
   const [isWorkoutFinished, setIsWorkoutFinished] = useState<boolean>(false);
 
@@ -241,10 +251,13 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
         setActiveWorkout({
           ...routine,
           activeSplitIndex: 0,
-          exercises: routine.splits[0].exercises
+          exercises: computeSupersetLabels(routine.splits[0].exercises)
         });
       } else {
-        setActiveWorkout(routine);
+        setActiveWorkout({
+          ...routine,
+          exercises: computeSupersetLabels(routine.exercises || [])
+        });
       }
       setIsWorkoutFinished(false);
     }
@@ -747,17 +760,42 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
           showToast(`🏆 NUOVO RECORD PERSONALE! ${currentSet.actualWeightKg} kg su ${targetExercise.name}!`);
         }
 
-        // Start automatic Rest Timer with time chosen by personal coach
-        const restSec = targetExercise.restSeconds || activeAthlete?.defaultRestSeconds || 90;
-        const targetEndTime = Date.now() + restSec * 1000;
-        setRestTimer({
-          active: true,
-          remaining: restSec,
-          total: restSec,
-          exerciseName: targetExercise.name,
-          targetEndTime
-        });
-        wakeLockManager.requestWakeLock();
+        // Check if this exercise is part of a superset
+        const isSuperset = Boolean(targetExercise.supersetGroupId);
+        let isLastInSuperset = true;
+        let nextSupersetExerciseName = '';
+
+        if (isSuperset) {
+          const supersetExercises = updatedExercises.filter(
+            e => e.supersetGroupId === targetExercise.supersetGroupId
+          );
+          const currentSupersetIdx = supersetExercises.findIndex(
+            e => (e.exerciseId && e.exerciseId === targetExercise.exerciseId) || e.name === targetExercise.name
+          );
+          if (currentSupersetIdx >= 0 && currentSupersetIdx < supersetExercises.length - 1) {
+            isLastInSuperset = false;
+            const nextEx = supersetExercises[currentSupersetIdx + 1];
+            nextSupersetExerciseName = `${nextEx.supersetLabel || ''} ${nextEx.name}`.trim();
+          }
+        }
+
+        if (isSuperset && !isLastInSuperset) {
+          // Seamless transition: No rest timer between exercises inside the superset!
+          setRestTimer(prevTimer => ({ ...prevTimer, active: false, remaining: 0 }));
+          showToast(`⚡ SUPERSET! Nessun recupero: passa subito a ${nextSupersetExerciseName || 'prossimo esercizio'}!`);
+        } else {
+          // Start automatic Rest Timer with time chosen by personal coach (full rest after last superset exercise or standard)
+          const restSec = targetExercise.restSeconds || activeAthlete?.defaultRestSeconds || 90;
+          const targetEndTime = Date.now() + restSec * 1000;
+          setRestTimer({
+            active: true,
+            remaining: restSec,
+            total: restSec,
+            exerciseName: isSuperset ? `Superset ${targetExercise.supersetLabel || ''} (${targetExercise.name})` : targetExercise.name,
+            targetEndTime
+          });
+          wakeLockManager.requestWakeLock();
+        }
 
         // Publish to other connected devices (e.g. tablet coach)
         publishSyncEvent('TOGGLE_SET', {
@@ -769,7 +807,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
           weight: currentSet.actualWeightKg,
           reps: currentSet.actualReps,
           exerciseName: targetExercise.name,
-          restSec
+          restSec: isSuperset && !isLastInSuperset ? 0 : (targetExercise.restSeconds || 90)
         });
 
         return { ...prev, exercises: updatedExercises };
@@ -840,7 +878,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
       return {
         ...prev,
         activeSplitIndex: splitIndex,
-        exercises: prev.splits[splitIndex].exercises
+        exercises: computeSupersetLabels(prev.splits[splitIndex].exercises)
       };
     });
     const splitName = activeWorkout.splits?.[splitIndex]?.name || `Split ${splitIndex + 1}`;

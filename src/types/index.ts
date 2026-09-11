@@ -134,6 +134,8 @@ export interface WorkoutExercise {
   videoUrl?: string; // Video girato dal coach o clip HD
   isCoachCustomVideo?: boolean;
   coachVideoAuthor?: string;
+  supersetGroupId?: string; // Identificativo gruppo superset (es. "ss-1")
+  supersetLabel?: string; // Etichetta visiva progressiva (es. "01A", "01B")
 }
 
 export interface WorkoutSplit {

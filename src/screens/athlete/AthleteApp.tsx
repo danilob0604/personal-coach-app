@@ -27,7 +27,8 @@ import {
   X,
   Settings,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Timer
 } from 'lucide-react';
 import type { WorkoutExercise } from '../../types';
 import { ExerciseVideoModal } from '../../components/ExerciseVideoModal';
@@ -426,14 +427,26 @@ export const AthleteApp: React.FC = () => {
                           return (
                             <div
                               key={idx}
-                              className="flex items-center justify-between text-xs bg-slate-50/90 hover:bg-white py-1.5 px-2.5 sm:p-2.5 rounded-lg sm:rounded-xl border border-slate-200 transition-all shadow-xs"
+                              className={`flex items-center justify-between text-xs py-1.5 px-2.5 sm:p-2.5 rounded-lg sm:rounded-xl border transition-all shadow-xs ${
+                                ex.supersetGroupId ? 'bg-violet-50/50 border-violet-200' : 'bg-slate-50/90 hover:bg-white border-slate-200'
+                              }`}
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className={`w-5 h-5 rounded-md flex items-center justify-center font-mono font-black text-[10px] text-white shadow-xs shrink-0 ${exTheme.lightStripe}`}>
-                                  {idx + 1}
+                                <span className={`w-7 h-5 rounded-md flex items-center justify-center font-mono font-black text-[10px] text-white shadow-xs shrink-0 ${
+                                  ex.supersetGroupId ? 'bg-gradient-to-r from-violet-600 to-indigo-600' : exTheme.lightStripe
+                                }`}>
+                                  {ex.supersetLabel || (idx + 1)}
                                 </span>
                                 <div className="min-w-0">
-                                  <span className="font-bold text-slate-900 block text-xs truncate">{translateExerciseName(ex.name, language)}</span>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-slate-900 block text-xs truncate">{translateExerciseName(ex.name, language)}</span>
+                                    {ex.supersetGroupId && (
+                                      <span className="text-[8px] font-mono font-black uppercase px-1 py-0.2 rounded bg-violet-100 text-violet-800 border border-violet-300 flex items-center gap-0.5 shrink-0">
+                                        <Zap className="w-2.5 h-2.5 text-violet-600 fill-current" />
+                                        SUPERSET {ex.supersetLabel}
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-1 text-[9px] text-slate-500 font-mono">
                                     <span className={`uppercase font-bold px-1 py-0.2 rounded border ${exTheme.badgeBg}`}>
                                       {translateMuscleName(ex.muscle, language)}
@@ -538,33 +551,56 @@ export const AthleteApp: React.FC = () => {
 
                   const isExerciseCompleted = exercise.sets.length > 0 && exercise.sets.every(s => s.completed);
 
+                  const isSuperset = Boolean(exercise.supersetGroupId);
+                  const supersetGroupExs = isSuperset ? activeWorkout.exercises.filter(e => e.supersetGroupId === exercise.supersetGroupId) : [];
+                  const isLastInSuperset = isSuperset && (supersetGroupExs[supersetGroupExs.length - 1] === exercise);
+                  const nextSupersetEx = isSuperset && !isLastInSuperset ? supersetGroupExs[supersetGroupExs.indexOf(exercise) + 1] : null;
+
                   return (
                     <div
-                      key={exercise.exerciseId}
-                      className={`bg-white border rounded-xl sm:rounded-2xl overflow-hidden shadow-xs space-y-0 transition-all ${
+                      key={exercise.exerciseId || exIndex}
+                      className={`rounded-xl sm:rounded-2xl overflow-hidden shadow-xs space-y-0 transition-all ${
                         isExerciseCompleted 
-                          ? 'border-emerald-400 ring-1 ring-emerald-400/30 shadow-emerald-500/10' 
-                          : 'border-slate-200'
+                          ? 'bg-white border-emerald-400 ring-1 ring-emerald-400/30 shadow-emerald-500/10' 
+                          : isSuperset
+                          ? 'bg-white border-2 border-violet-400/80 ring-1 ring-violet-400/30'
+                          : 'bg-white border border-slate-200'
                       }`}
                     >
                       {/* Technogym Live Muscle Top Stripe */}
-                      <div className={`h-1.5 w-full ${isExerciseCompleted ? 'bg-emerald-500' : exTheme.lightStripe}`} />
+                      <div className={`h-1.5 w-full ${
+                        isExerciseCompleted 
+                          ? 'bg-emerald-500' 
+                          : isSuperset 
+                          ? 'bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-600' 
+                          : exTheme.lightStripe
+                      }`} />
 
                       <div className="p-2.5 sm:p-3.5 space-y-2 sm:space-y-2.5">
                         {/* Exercise Header */}
                         <div className="space-y-1">
                           <div className="flex items-center justify-between gap-1.5">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className={`w-5 h-5 rounded-md flex items-center justify-center font-mono font-black text-[10px] shrink-0 shadow-xs ${
-                                isExerciseCompleted ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white'
+                              <span className={`w-8 sm:w-9 h-5 rounded-md flex items-center justify-center font-mono font-black text-[10px] shrink-0 shadow-xs ${
+                                isExerciseCompleted 
+                                  ? 'bg-emerald-600 text-white' 
+                                  : isSuperset
+                                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white'
+                                  : 'bg-slate-900 text-white'
                               }`}>
-                                0{exIndex + 1}
+                                {exercise.supersetLabel || `0${exIndex + 1}`}
                               </span>
-                              <div className="flex items-center gap-1.5 min-w-0">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                                 <h4 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-tight truncate">{translateExerciseName(exercise.name, language)}</h4>
                                 <span className={`text-[8px] sm:text-[9px] font-mono uppercase font-black px-1.5 py-0.2 rounded border shrink-0 ${exTheme.badgeBg}`}>
                                   {translateMuscleName(exercise.muscle, language)}
                                 </span>
+                                {isSuperset && (
+                                  <span className="text-[8px] sm:text-[9px] font-mono font-black uppercase px-1.5 py-0.2 rounded bg-violet-100 text-violet-800 border border-violet-300 flex items-center gap-0.5 shrink-0 shadow-xs">
+                                    <Zap className="w-2.5 h-2.5 text-violet-600 fill-current" />
+                                    SUPERSET {exercise.supersetLabel}
+                                  </span>
+                                )}
                                 {isExerciseCompleted && (
                                   <span className="text-[8px] sm:text-[9px] font-mono font-black uppercase px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-0.5 shrink-0 shadow-xs">
                                     <Check className="w-2.5 h-2.5 stroke-[3]" />
@@ -589,9 +625,30 @@ export const AthleteApp: React.FC = () => {
                           </div>
 
                           <div className="text-[9px] sm:text-[10px] font-mono text-slate-500 uppercase tracking-wider font-medium">
-                            {t.athlete.recoveryLabel} {exercise.restSeconds || athlete?.defaultRestSeconds || 90} SEC • {t.athlete.rpeLabel} {exercise.targetRPE || 8}
+                            {isSuperset && !isLastInSuperset
+                              ? `${language === 'it' ? 'NESSUN RECUPERO (SUPERSET CONTINUO)' : 'NO REST (SEAMLESS SUPERSET)'} • ${t.athlete.rpeLabel} ${exercise.targetRPE || 8}`
+                              : `${t.athlete.recoveryLabel} ${exercise.restSeconds || athlete?.defaultRestSeconds || 90} SEC • ${t.athlete.rpeLabel} ${exercise.targetRPE || 8}`}
                             {exercise.tempo ? ` • TEMPO ${exercise.tempo}` : ''}
                           </div>
+
+                          {/* Superset High-Energy Action Alert */}
+                          {isSuperset && !isLastInSuperset && nextSupersetEx && (
+                            <div className="bg-gradient-to-r from-violet-50 via-indigo-50 to-violet-50 border border-violet-200 rounded-lg p-2 flex items-center gap-2 mt-1">
+                              <Zap className="w-3.5 h-3.5 text-violet-600 shrink-0 fill-current animate-pulse" />
+                              <span className="text-[10px] sm:text-[11px] font-mono font-black text-violet-950 leading-tight">
+                                SUPERSET: Convalida la serie e passa SUBITO a {nextSupersetEx.supersetLabel} ({translateExerciseName(nextSupersetEx.name, language)}) SENZA recupero!
+                              </span>
+                            </div>
+                          )}
+
+                          {isSuperset && isLastInSuperset && (
+                            <div className="bg-indigo-50/90 border border-indigo-200 rounded-lg p-2 flex items-center gap-2 mt-1">
+                              <Timer className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              <span className="text-[10px] sm:text-[11px] font-mono font-bold text-indigo-950 leading-tight">
+                                SUPERSET ({exercise.supersetLabel}): Convalidando questa serie si avvia il recupero completo di {exercise.restSeconds || 90}s per il superset.
+                              </span>
+                            </div>
+                          )}
 
                           {/* Unified Strength Gain & Coach Cue Strip (Compact) */}
                           {(lift || exercise.trainerNotes) && (

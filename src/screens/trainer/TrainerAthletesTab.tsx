@@ -11,7 +11,8 @@ import {
   Lock, 
   Activity, 
   FileText,
-  Timer 
+  Timer,
+  MessageCircle
 } from 'lucide-react';
 import type { Athlete } from '../../types';
 import { AthleteDossierModal } from '../../components/AthleteDossierModal';
@@ -34,8 +35,28 @@ export const TrainerAthletesTab: React.FC<{ onSelectAthlete: (athlete: Athlete) 
 
   const [selectedAthleteForDossier, setSelectedAthleteForDossier] = useState<Athlete | null>(null);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'inactive' | 'archived'>('all');
+  const [filter, setFilter] = useState<'all' | 'warning' | 'risk' | 'inactive' | 'archived'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Retention Radar telemetry counts
+  const countActive = athletes.filter(a => a.status !== 'archived' && a.lastWorkoutDaysAgo <= 3).length;
+  const countWarning = athletes.filter(a => a.status !== 'archived' && a.lastWorkoutDaysAgo >= 4 && a.lastWorkoutDaysAgo <= 5).length;
+  const countRisk = athletes.filter(a => a.status !== 'archived' && a.lastWorkoutDaysAgo >= 6).length;
+
+  const handleWhatsAppContact = (athlete: Athlete) => {
+    const cleanPhone = (athlete.phone || '+39 340 9876543').replace(/[^0-9]/g, '');
+    const firstName = athlete.name.split(' ')[0];
+    let text = '';
+    if (athlete.lastWorkoutDaysAgo >= 6) {
+      text = `Ciao ${firstName}! 👋 Sono il tuo Personal Coach. Ho notato che sono passati ${athlete.lastWorkoutDaysAgo} giorni dall'ultimo allenamento. Va tutto bene? Se hai orari complicati o fastidi fisici possiamo riadattare la scheda insieme. Fammi sapere come stai, ci tengo! 💪`;
+    } else if (athlete.lastWorkoutDaysAgo >= 4) {
+      text = `Ciao ${firstName}! 👋 Come va? Ti aspetto in palestra per la prossima sessione del tuo protocollo! Quando riesci ad allenarti questa settimana? 🏋️‍♂️`;
+    } else {
+      text = `Ciao ${firstName}! Ottimo lavoro con l'allenamento di questi giorni! Continua così con questa costanza, ci vediamo per il prossimo check! 🔥`;
+    }
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
 
   // New athlete form
   const [name, setName] = useState('');
@@ -49,6 +70,8 @@ export const TrainerAthletesTab: React.FC<{ onSelectAthlete: (athlete: Athlete) 
     if (!matchesSearch) return false;
     if (filter === 'all') return a.status !== 'archived';
     if (filter === 'archived') return a.status === 'archived';
+    if (filter === 'warning') return a.status !== 'archived' && a.lastWorkoutDaysAgo >= 4 && a.lastWorkoutDaysAgo <= 5;
+    if (filter === 'risk') return a.status !== 'archived' && a.lastWorkoutDaysAgo >= 6;
     return a.status === filter;
   });
 
@@ -147,6 +170,64 @@ export const TrainerAthletesTab: React.FC<{ onSelectAthlete: (athlete: Athlete) 
         </div>
       </div>
 
+      {/* ========================================================================= */}
+      {/* PUNTO 7: RADAR RETENTION & ADERENZA ATLETI (TELEMETRIA INATTIVITÀ)       */}
+      {/* ========================================================================= */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-mono text-blue-600 uppercase font-black tracking-widest flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5" />
+            <span>RADAR RETENTION & ADERENZA ATLETI</span>
+          </div>
+          <div className="text-xs text-slate-500 font-mono mt-0.5">
+            Monitoraggio giorni dall'ultimo workout e intervento anticaduta via WhatsApp
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            type="button"
+            onClick={() => setFilter('all')}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-xs ${
+              filter === 'all'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-2 ring-emerald-400/40'
+                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span>Regolari: {countActive}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilter(filter === 'warning' ? 'all' : 'warning')}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-xs ${
+              filter === 'warning'
+                ? 'bg-amber-100 text-amber-900 border-amber-400 ring-2 ring-amber-400/40 scale-[1.02]'
+                : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+            }`}
+            title="Filtra atleti inattivi da 4 a 5 giorni"
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <span>Attenzione (4-5gg): {countWarning}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilter(filter === 'risk' ? 'all' : 'risk')}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-black flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-xs ${
+              filter === 'risk'
+                ? 'bg-rose-100 text-rose-900 border-rose-400 ring-2 ring-rose-400/40 scale-[1.02]'
+                : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
+            }`}
+            title="Filtra atleti a rischio abbandono (inattivi da 6+ giorni)"
+          >
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            <span>Rischio Abbandono (6+gg): {countRisk}</span>
+          </button>
+        </div>
+      </div>
+
       {/* Filter and Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div className="relative w-full sm:flex-1">
@@ -170,12 +251,20 @@ export const TrainerAthletesTab: React.FC<{ onSelectAthlete: (athlete: Athlete) 
             {t.trainer.crm.filterAll} ({athletes.filter(a => a.status !== 'archived').length})
           </button>
           <button
-            onClick={() => setFilter('inactive')}
+            onClick={() => setFilter('warning')}
             className={`flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 rounded-lg font-bold uppercase transition-all cursor-pointer whitespace-nowrap text-center ${
-              filter === 'inactive' ? 'bg-rose-500 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'
+              filter === 'warning' ? 'bg-amber-500 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            {t.trainer.crm.filterInactive} ({athletes.filter(a => a.status === 'inactive').length})
+            🟡 4-5gg ({countWarning})
+          </button>
+          <button
+            onClick={() => setFilter('risk')}
+            className={`flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 rounded-lg font-bold uppercase transition-all cursor-pointer whitespace-nowrap text-center ${
+              filter === 'risk' ? 'bg-rose-500 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            🔴 6+gg ({countRisk})
           </button>
           <button
             onClick={() => setFilter('archived')}
@@ -192,6 +281,8 @@ export const TrainerAthletesTab: React.FC<{ onSelectAthlete: (athlete: Athlete) 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
         {filteredAthletes.map((athlete) => {
           const isArchived = athlete.status === 'archived';
+          const isAtRisk = athlete.lastWorkoutDaysAgo >= 6;
+          const isWarning = athlete.lastWorkoutDaysAgo >= 4 && athlete.lastWorkoutDaysAgo <= 5;
 
           return (
             <div
@@ -199,32 +290,48 @@ export const TrainerAthletesTab: React.FC<{ onSelectAthlete: (athlete: Athlete) 
               className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
                 isArchived
                   ? 'bg-slate-100/60 border-slate-200 opacity-60'
+                  : isAtRisk
+                  ? 'bg-white border-rose-300 ring-1 ring-rose-400/30 shadow-sm hover:shadow-md'
+                  : isWarning
+                  ? 'bg-white border-amber-300 ring-1 ring-amber-400/30 shadow-sm hover:shadow-md'
                   : 'bg-white border-slate-200/90 hover:border-blue-300 shadow-sm hover:shadow-md'
               }`}
             >
               <div className="flex items-start justify-between gap-2.5">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <img
-                    src={athlete.avatar}
-                    alt={athlete.name}
-                    className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl object-cover border-2 border-slate-100 shadow-xs shrink-0"
-                  />
+                <div 
+                  onClick={() => setSelectedAthleteForDossier(athlete)}
+                  className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                >
+                  <div className="relative shrink-0">
+                    <img
+                      src={athlete.avatar}
+                      alt={athlete.name}
+                      className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl object-cover border-2 border-slate-100 shadow-xs shrink-0"
+                    />
+                    <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                      isAtRisk ? 'bg-rose-500 animate-pulse' : isWarning ? 'bg-amber-500' : 'bg-emerald-500'
+                    }`} />
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <h4 className="font-black text-slate-900 text-sm uppercase tracking-tight truncate">{athlete.name}</h4>
-                      {athlete.status === 'active' && (
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title={language === 'it' ? 'Attivo' : language === 'es' ? 'Activo' : 'Active'} />
-                      )}
-                      {athlete.status === 'inactive' && (
-                        <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" title={language === 'it' ? 'Inattivo da giorni' : language === 'es' ? 'Inactivo desde hace días' : 'Inactive for days'} />
-                      )}
-                      {athlete.status === 'expiring' && (
-                        <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title={language === 'it' ? 'Scadenza vicina' : language === 'es' ? 'Vencimiento cercano' : 'Expiring soon'} />
+                      {isAtRisk ? (
+                        <span className="text-[8px] sm:text-[9px] font-mono font-black uppercase px-1.5 py-0.2 rounded bg-rose-50 text-rose-700 border border-rose-300 animate-pulse shrink-0">
+                          🔴 6+gg inattivo
+                        </span>
+                      ) : isWarning ? (
+                        <span className="text-[8px] sm:text-[9px] font-mono font-black uppercase px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-300 shrink-0">
+                          🟡 4-5gg inattivo
+                        </span>
+                      ) : (
+                        <span className="text-[8px] sm:text-[9px] font-mono font-black uppercase px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                          🟢 Regolare
+                        </span>
                       )}
                     </div>
                     <div className="text-[11px] font-mono text-slate-500 truncate">{athlete.email}</div>
                     <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                      <span className="text-[11px] text-blue-600 font-mono font-bold uppercase truncate max-w-[140px]">
+                      <span className="text-[11px] text-blue-600 font-mono font-bold uppercase truncate max-w-[130px]">
                         {translateRoutineTitle(athlete.currentWorkoutPlan, language)}
                       </span>
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-mono font-black shrink-0" title={language === 'it' ? 'Tempo di recupero standard configurato dal coach' : language === 'es' ? 'Tiempo de descanso estándar configurado por el entrenador' : 'Standard rest time configured by coach'}>
@@ -235,8 +342,26 @@ export const TrainerAthletesTab: React.FC<{ onSelectAthlete: (athlete: Athlete) 
                   </div>
                 </div>
 
-                {/* Actions */}
+                {/* Actions: WhatsApp Quick Contact + Dossier */}
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {!isArchived && (
+                    <button
+                      type="button"
+                      onClick={() => handleWhatsAppContact(athlete)}
+                      className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-white text-xs font-mono font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0 ${
+                        isAtRisk
+                          ? 'bg-rose-600 hover:bg-rose-700 ring-2 ring-rose-400/40 animate-pulse shadow-rose-600/30'
+                          : isWarning
+                          ? 'bg-emerald-600 hover:bg-emerald-700 ring-2 ring-amber-400/50 shadow-emerald-600/30'
+                          : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+                      }`}
+                      title={`Invia messaggio WhatsApp anticaduta a ${athlete.name}`}
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 fill-current" />
+                      <span className="hidden sm:inline">WhatsApp</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => setSelectedAthleteForDossier(athlete)}
                     className="p-2 sm:px-3 sm:py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors cursor-pointer shadow-xs flex items-center gap-1 text-xs font-mono font-bold"
