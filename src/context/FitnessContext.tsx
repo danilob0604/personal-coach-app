@@ -633,16 +633,19 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
       const updatedSets = [...targetExercise.sets];
       const currentSet = { ...updatedSets[setIndex] };
 
-      const willBeCompleted = !currentSet.completed;
-      currentSet.completed = willBeCompleted;
+      // Once validated, the set cannot be unchecked
+      if (currentSet.completed) {
+        return prev;
+      }
+
+      currentSet.completed = true;
       updatedSets[setIndex] = currentSet;
       targetExercise.sets = updatedSets;
       updatedExercises[exerciseIndex] = targetExercise;
 
-      if (willBeCompleted) {
-        soundManager.playSetComplete();
+      soundManager.playSetComplete();
 
-        // If it's a Personal Record (PR)
+      // If it's a Personal Record (PR)
         if (currentSet.isPR) {
           awardXp(activeAthlete.id, 100, 'Nuovo Record Personale');
           soundManager.playPrFanfare();
@@ -672,17 +675,16 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
           athleteName: activeAthlete.name,
           exerciseIndex,
           setIndex,
-          completed: willBeCompleted,
+          completed: true,
           weight: currentSet.actualWeightKg,
           reps: currentSet.actualReps,
           exerciseName: targetExercise.name,
           restSec
         });
-      }
 
-      return { ...prev, exercises: updatedExercises };
-    });
-  };
+        return { ...prev, exercises: updatedExercises };
+      });
+    };
 
   // Update set weight and reps
   const updateSetValues = (exerciseIndex: number, setIndex: number, weight: number, reps: number) => {

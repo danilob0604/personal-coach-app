@@ -502,20 +502,28 @@ export const AthleteApp: React.FC = () => {
                     exercise.name.toLowerCase().includes('military') && l.exerciseName.toLowerCase().includes('military')
                   );
 
+                  const isExerciseCompleted = exercise.sets.length > 0 && exercise.sets.every(s => s.completed);
+
                   return (
                     <div
                       key={exercise.exerciseId}
-                      className="bg-white border border-slate-200 rounded-xl sm:rounded-2xl overflow-hidden shadow-xs space-y-0"
+                      className={`bg-white border rounded-xl sm:rounded-2xl overflow-hidden shadow-xs space-y-0 transition-all ${
+                        isExerciseCompleted 
+                          ? 'border-emerald-400 ring-1 ring-emerald-400/30 shadow-emerald-500/10' 
+                          : 'border-slate-200'
+                      }`}
                     >
                       {/* Technogym Live Muscle Top Stripe */}
-                      <div className={`h-1.5 w-full ${exTheme.lightStripe}`} />
+                      <div className={`h-1.5 w-full ${isExerciseCompleted ? 'bg-emerald-500' : exTheme.lightStripe}`} />
 
                       <div className="p-2.5 sm:p-3.5 space-y-2 sm:space-y-2.5">
                         {/* Exercise Header */}
                         <div className="space-y-1">
                           <div className="flex items-center justify-between gap-1.5">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-5 h-5 rounded-md bg-slate-900 text-white flex items-center justify-center font-mono font-black text-[10px] shrink-0 shadow-xs">
+                              <span className={`w-5 h-5 rounded-md flex items-center justify-center font-mono font-black text-[10px] shrink-0 shadow-xs ${
+                                isExerciseCompleted ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white'
+                              }`}>
                                 0{exIndex + 1}
                               </span>
                               <div className="flex items-center gap-1.5 min-w-0">
@@ -523,6 +531,12 @@ export const AthleteApp: React.FC = () => {
                                 <span className={`text-[8px] sm:text-[9px] font-mono uppercase font-black px-1.5 py-0.2 rounded border shrink-0 ${exTheme.badgeBg}`}>
                                   {translateMuscleName(exercise.muscle, language)}
                                 </span>
+                                {isExerciseCompleted && (
+                                  <span className="text-[8px] sm:text-[9px] font-mono font-black uppercase px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-0.5 shrink-0 shadow-xs">
+                                    <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                    <span>{language === 'it' ? 'VALIDATO' : language === 'es' ? 'VALIDADO' : 'VALIDATED'}</span>
+                                  </span>
+                                )}
                               </div>
                             </div>
 
@@ -589,11 +603,15 @@ export const AthleteApp: React.FC = () => {
 
                               {/* Console Inputs (High contrast dark pods) */}
                               <div className="flex items-center gap-1.5">
-                                <div className="flex items-center gap-1 bg-slate-900 text-white px-2 py-1 rounded-md border border-slate-800 shadow-xs">
+                                <div className={`flex items-center gap-1 text-white px-2 py-1 rounded-md border shadow-xs ${
+                                  set.completed ? 'bg-slate-950 border-emerald-500/40' : 'bg-slate-900 border-slate-800'
+                                }`}>
                                   <input
                                     type="number"
                                     value={set.actualWeightKg}
+                                    readOnly={set.completed}
                                     onChange={(e) =>
+                                      !set.completed &&
                                       updateSetValues(
                                         exIndex,
                                         setIndex,
@@ -601,18 +619,24 @@ export const AthleteApp: React.FC = () => {
                                         set.actualReps
                                       )
                                     }
-                                    className="w-9 sm:w-11 bg-transparent text-right font-mono font-black text-white text-xs sm:text-sm focus:outline-none"
+                                    className={`w-9 sm:w-11 bg-transparent text-right font-mono font-black text-xs sm:text-sm focus:outline-none ${
+                                      set.completed ? 'text-emerald-400 cursor-default select-none' : 'text-white'
+                                    }`}
                                   />
                                   <span className="text-[8px] sm:text-[9px] text-amber-400 font-mono font-black">KG</span>
                                 </div>
 
                                 <span className="text-slate-400 font-mono text-xs font-black">×</span>
 
-                                <div className="flex items-center gap-1 bg-slate-900 text-white px-2 py-1 rounded-md border border-slate-800 shadow-xs">
+                                <div className={`flex items-center gap-1 text-white px-2 py-1 rounded-md border shadow-xs ${
+                                  set.completed ? 'bg-slate-950 border-emerald-500/40' : 'bg-slate-900 border-slate-800'
+                                }`}>
                                   <input
                                     type="number"
                                     value={set.actualReps}
+                                    readOnly={set.completed}
                                     onChange={(e) =>
+                                      !set.completed &&
                                       updateSetValues(
                                         exIndex,
                                         setIndex,
@@ -620,21 +644,28 @@ export const AthleteApp: React.FC = () => {
                                         parseInt(e.target.value) || 0
                                       )
                                     }
-                                    className="w-7 sm:w-8 bg-transparent text-center font-mono font-black text-white text-xs sm:text-sm focus:outline-none"
+                                    className={`w-7 sm:w-8 bg-transparent text-center font-mono font-black text-xs sm:text-sm focus:outline-none ${
+                                      set.completed ? 'text-emerald-400 cursor-default select-none' : 'text-white'
+                                    }`}
                                   />
                                   <span className="text-[8px] sm:text-[9px] text-cyan-400 font-mono font-black">{t.athlete.repsAbbr}</span>
                                 </div>
                               </div>
 
-                              {/* THE TACTICAL CHECKMARK BUTTON */}
+                              {/* THE TACTICAL CHECKMARK BUTTON (Once validated, permanently locked) */}
                               <button
-                                onClick={() => toggleSetComplete(exIndex, setIndex)}
-                                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center transition-all duration-150 active:scale-90 shadow-xs cursor-pointer shrink-0 ${
+                                disabled={set.completed}
+                                onClick={() => !set.completed && toggleSetComplete(exIndex, setIndex)}
+                                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center transition-all duration-150 shadow-xs shrink-0 ${
                                   set.completed
-                                    ? 'bg-emerald-500 text-white shadow-xs shadow-emerald-500/30'
-                                    : 'bg-white hover:bg-slate-100 text-slate-400 border border-slate-300'
+                                    ? 'bg-emerald-500 text-white shadow-xs shadow-emerald-500/30 cursor-default ring-2 ring-emerald-400/40 select-none'
+                                    : 'bg-white hover:bg-slate-100 text-slate-400 border border-slate-300 active:scale-90 cursor-pointer'
                                 }`}
-                                title={set.completed ? 'Serie registrata!' : 'Tocca per registrare'}
+                                title={
+                                  set.completed
+                                    ? (language === 'it' ? 'Serie convalidata ✓ (Non modificabile)' : language === 'es' ? 'Serie validada ✓ (No modificable)' : 'Set validated ✓ (Locked)')
+                                    : (language === 'it' ? 'Tocca per convalidare la serie' : language === 'es' ? 'Toca para validar la serie' : 'Tap to validate set')
+                                }
                               >
                                 <Check className={`w-4 h-4 sm:w-5 sm:h-5 stroke-[3] ${set.completed ? 'text-white' : 'text-slate-400'}`} />
                               </button>
